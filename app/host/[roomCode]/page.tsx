@@ -113,6 +113,40 @@ export default function HostGamePage() {
     return () => clearInterval(interval);
   }, [room?.status, room?.scheduledStartAt, roomCode]);
 
+  // Active Lobby Database Syncer (Dual-channel fallback to guarantee all joined players are visible)
+  useEffect(() => {
+    if (!roomCode || room?.status !== 'LOBBY') return;
+
+    const manager = getRoomManager(roomCode);
+    const syncLobbyDb = async () => {
+      const dbRoom = await manager.lookupRoomStateAsync();
+      if (dbRoom && dbRoom.players) {
+        setRoom((prev) => {
+          if (!prev) return dbRoom;
+          const currentPlayers = prev.players || {};
+          const dbPlayers = dbRoom.players || {};
+          const hasNew = Object.keys(dbPlayers).some((k) => !currentPlayers[k]);
+          if (hasNew) {
+            sound.playPop();
+            const mergedPlayers = { ...currentPlayers, ...dbPlayers };
+            const mergedRoom = { ...prev, players: mergedPlayers };
+            manager.saveRoom(mergedRoom);
+            manager.broadcast({
+              type: 'ROOM_SYNC',
+              room: mergedRoom,
+            });
+            return mergedRoom;
+          }
+          return prev;
+        });
+      }
+    };
+
+    const pollInterval = setInterval(syncLobbyDb, 1500);
+    return () => clearInterval(pollInterval);
+  }, [roomCode, room?.status]);
+
+
   const handleBroadcastEvent = (event: BroadcastEvent) => {
     const manager = getRoomManager(roomCode);
 

@@ -193,11 +193,28 @@ function PlayGameContent() {
       streak: 0,
     };
 
+    // 1. Instant Realtime broadcast
     manager.broadcast({
       type: 'PLAYER_JOINED',
       player: selfPlayer,
     });
-  }, [roomCode, hasJoinedLobby, currentNickname, currentAvatar, playerId]);
+
+    // 2. Direct Supabase Cloud DB write for cross-device persistence
+    manager.addPlayerDirectly(selfPlayer);
+
+    // 3. Repeat presence heartbeat while in LOBBY
+    const presenceInterval = setInterval(() => {
+      if (!room || room.status === 'LOBBY') {
+        manager.broadcast({
+          type: 'PLAYER_JOINED',
+          player: selfPlayer,
+        });
+      }
+    }, 2500);
+
+    return () => clearInterval(presenceInterval);
+  }, [roomCode, hasJoinedLobby, currentNickname, currentAvatar, playerId, room?.status]);
+
 
   // Scheduled Auto-Start countdown ticker
   useEffect(() => {

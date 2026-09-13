@@ -10,6 +10,8 @@ export class GameRoomManager {
   private localBroadcast: BroadcastChannel | null = null;
   private supabaseChannel: ReturnType<NonNullable<ReturnType<typeof getSupabaseClient>>['channel']> | null = null;
   private listeners: Set<(event: BroadcastEvent) => void> = new Set();
+  private isSupabaseSubscribed = false;
+  private pendingBroadcastQueue: BroadcastEvent[] = [];
 
   constructor(roomCode: string) {
     this.roomCode = roomCode.toUpperCase();
@@ -35,7 +37,24 @@ export class GameRoomManager {
           .on('broadcast', { event: 'game_event' }, ({ payload }) => {
             this.notifyListeners(payload as BroadcastEvent);
           })
-          .subscribe();
+          .subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+              this.isSupabaseSubscribed = true;
+              // Flush any events that were queued before websocket was ready
+              while (this.pendingBroadcastQueue.length > 0) {
+                const queued = this.pendingBroadcastQueue.shift();
+                if (queued && this.supabaseChannel) {
+                  this.supabaseChannel.send({
+                    type: 'broadcast',
+                    event: 'game_event',
+                    payload: queued,
+                  });
+                }
+              }
+            } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+              this.isSupabaseSubscribed = false;
+            }
+          });
       }
     }
   }
@@ -65,11 +84,16 @@ export class GameRoomManager {
     }
 
     if (this.supabaseChannel) {
-      this.supabaseChannel.send({
-        type: 'broadcast',
-        event: 'game_event',
-        payload: event,
-      });
+      if (this.isSupabaseSubscribed) {
+        this.supabaseChannel.send({
+          type: 'broadcast',
+          event: 'game_event',
+          payload: event,
+        });
+      } else {
+        // Queue it until websocket subscription is ready
+        this.pendingBroadcastQueue.push(event);
+      }
     }
   }
 
@@ -124,6 +148,35 @@ export class GameRoomManager {
       }
     } catch (err) {
       console.warn('Supabase DB sync catch:', err);
+    }
+  }
+
+  /**
+   * Adds or updates a player directly in the cloud database for instant host discovery
+   */
+  public async addPlayerDirectly(player: Player): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (!supabase || !isSupabaseConfigured) return;
+
+    try {
+      const { data } = await supabase
+        .from('quiz_rooms')
+        .select('players')
+        .eq('room_code', this.roomCode)
+        .maybeSingle();
+
+      const existingPlayers = data?.players || {};
+      existingPlayers[player.id] = player;
+
+      await supabase
+        .from('quiz_rooms')
+        .update({
+          players: existingPlayers,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('room_code', this.roomCode);
+    } catch (err) {
+      console.warn('Direct player addition error:', err);
     }
   }
 
@@ -198,6 +251,52 @@ export class GameRoomManager {
     return null;
   }
 
+  /**
+   * Directly queries the latest room state from Supabase Cloud DB (bypassing local cache).
+   */
+  public async lookupRoomStateAsync(): Promise<GameRoom | null> {
+    const supabase = getSupabaseClient();
+    if (!supabase || !isSupabaseConfigured) return null;
+
+    try {
+      const { data, error } = await supabase
+        .from('quiz_rooms')
+        .select('*')
+        .eq('room_code', this.roomCode)
+        .maybeSingle();
+
+      if (data && !error) {
+        return {
+          id: data.id,
+          roomCode: data.room_code,
+          hostId: data.host_id,
+          creatorId: data.creator_id,
+          creatorName: data.creator_name,
+          quiz: data.quiz,
+          status: data.status,
+          currentQuestionIndex: data.current_question_index || 0,
+          questionStartedAt: data.question_started_at,
+          scheduledStartAt: data.scheduled_start_at,
+          isPublic: data.is_public !== false,
+          maxCandidates: data.max_candidates,
+          settings: data.settings || {
+            timePerQuestion: 15,
+            speedBonus: true,
+            streakBonus: true,
+            showExplanations: true,
+            aiCommentaryEnabled: true,
+          },
+          players: data.players || {},
+          lastRevealedAnswer: data.last_revealed_answer,
+        };
+      }
+    } catch (err) {
+      console.warn('Failed to direct lookup room state:', err);
+    }
+    return null;
+  }
+
+
   public cleanup() {
     if (this.localBroadcast) {
       this.localBroadcast.close();
@@ -211,6 +310,8 @@ export class GameRoomManager {
       this.supabaseChannel = null;
     }
     this.listeners.clear();
+    this.isSupabaseSubscribed = false;
+    this.pendingBroadcastQueue = [];
   }
 }
 
