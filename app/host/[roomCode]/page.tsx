@@ -119,6 +119,7 @@ export default function HostGamePage() {
 
     const manager = getRoomManager(roomCode);
     const syncLobbyDb = async () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       const dbRoom = await manager.lookupRoomStateAsync();
       if (dbRoom && dbRoom.players) {
         setRoom((prev) => {

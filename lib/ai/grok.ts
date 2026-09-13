@@ -135,7 +135,7 @@ export async function generateQuizWithGrok(params: GenerateQuizParams): Promise<
   const endpoint = isGroq
     ? 'https://api.groq.com/openai/v1/chat/completions'
     : 'https://api.x.ai/v1/chat/completions';
-  const modelName = isGroq ? 'openai/gpt-oss-120b' : 'grok-2-latest';
+  const modelName = isGroq ? 'openai/gpt-oss-20b' : 'grok-2-latest';
 
   console.log(`[Kinetic AI] Calling ${isGroq ? 'Groq' : 'xAI'} API (${modelName}) for topic: "${topic}"...`);
 

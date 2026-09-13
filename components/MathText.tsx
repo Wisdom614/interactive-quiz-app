@@ -9,15 +9,32 @@ interface MathTextProps {
   block?: boolean;
 }
 
+const katexCache = new Map<string, string>();
+
+function getCachedKatex(latex: string, displayMode: boolean): string {
+  const cacheKey = `${displayMode ? 'B' : 'I'}:${latex}`;
+  const cached = katexCache.get(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const rendered = katex.renderToString(latex, {
+      displayMode,
+      throwOnError: false,
+    });
+    if (katexCache.size < 500) {
+      katexCache.set(cacheKey, rendered);
+    }
+    return rendered;
+  } catch {
+    return latex;
+  }
+}
+
 /**
  * MathText parses and renders text containing standard strings and LaTeX math formulas.
- * Supports:
- * - Block math: $$ ... $$ or \[ ... \]
- * - Inline math: $ ... $ or \( ... \)
- * - Direct LaTeX commands or formulas (\frac, \sqrt, \int, \pi, \alpha, etc.)
- * - Standard formulas & Unicode mathematical symbols
+ * Highly optimized with global LRU KaTeX caching.
  */
-export function MathText({ text, className = '', block = false }: MathTextProps) {
+export const MathText = React.memo(function MathText({ text, className = '', block = false }: MathTextProps) {
   const content = text || '';
 
   const parsedSegments = useMemo(() => {
@@ -32,65 +49,40 @@ export function MathText({ text, className = '', block = false }: MathTextProps)
 
       // Check if it's block math
       if ((part.startsWith('$$') && part.endsWith('$$')) || (part.startsWith('\\[') && part.endsWith('\\]'))) {
-        const math = part.startsWith('$$')
-          ? part.slice(2, -2).trim()
-          : part.slice(2, -2).trim();
-        try {
-          const html = katex.renderToString(math, {
-            displayMode: true,
-            throwOnError: false,
-          });
-          return (
-            <span
-              key={index}
-              className="katex-block my-1.5 block overflow-x-auto text-center"
-              dangerouslySetInnerHTML={{ __html: html }}
-            />
-          );
-        } catch {
-          return <span key={index}>{part}</span>;
-        }
+        const math = part.slice(2, -2).trim();
+        const html = getCachedKatex(math, true);
+        return (
+          <span
+            key={index}
+            className="katex-block my-1.5 block overflow-x-auto text-center"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        );
       }
 
       // Check if it's inline math
       if ((part.startsWith('$') && part.endsWith('$')) || (part.startsWith('\\(') && part.endsWith('\\)'))) {
-        const math = part.startsWith('$')
-          ? part.slice(1, -1).trim()
-          : part.slice(2, -2).trim();
-        try {
-          const html = katex.renderToString(math, {
-            displayMode: false,
-            throwOnError: false,
-          });
-          return (
-            <span
-              key={index}
-              className="katex-inline inline-block align-middle px-0.5"
-              dangerouslySetInnerHTML={{ __html: html }}
-            />
-          );
-        } catch {
-          return <span key={index}>{part}</span>;
-        }
+        const math = part.startsWith('$') ? part.slice(1, -1).trim() : part.slice(2, -2).trim();
+        const html = getCachedKatex(math, false);
+        return (
+          <span
+            key={index}
+            className="katex-inline inline-block align-middle px-0.5"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        );
       }
 
-      // Fallback check: if part contains raw unescaped TeX commands like \frac, \sqrt, \int, \pi, \sum, \lim, \times
+      // Fallback check: if part contains raw unescaped TeX commands
       if (/\\(frac|sqrt|int|sum|prod|lim|alpha|beta|gamma|delta|theta|lambda|mu|pi|sigma|omega|Delta|Sigma|Omega|infty|approx|neq|le|ge|pm|times|div|vec|hat|partial|nabla)\b/i.test(part)) {
-        try {
-          const html = katex.renderToString(part, {
-            displayMode: false,
-            throwOnError: false,
-          });
-          return (
-            <span
-              key={index}
-              className="katex-inline inline-block align-middle px-0.5"
-              dangerouslySetInnerHTML={{ __html: html }}
-            />
-          );
-        } catch {
-          return <span key={index}>{part}</span>;
-        }
+        const html = getCachedKatex(part, false);
+        return (
+          <span
+            key={index}
+            className="katex-inline inline-block align-middle px-0.5"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        );
       }
 
       // Regular text segment
@@ -103,4 +95,5 @@ export function MathText({ text, className = '', block = false }: MathTextProps)
       {parsedSegments}
     </span>
   );
-}
+});
+

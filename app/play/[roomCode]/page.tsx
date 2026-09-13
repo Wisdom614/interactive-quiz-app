@@ -254,6 +254,7 @@ function PlayGameContent() {
 
     const manager = getRoomManager(roomCode);
     const syncGameState = async () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       const dbRoom = await manager.lookupRoomStateAsync();
       if (dbRoom) {
         setRoom((prev) => {

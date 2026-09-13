@@ -287,49 +287,63 @@ export class GameRoomManager {
     return null;
   }
 
+  private inFlightLookup: Promise<GameRoom | null> | null = null;
+
   /**
-   * Directly queries the latest room state from Supabase Cloud DB (bypassing local cache).
+   * Directly queries the latest room state from Supabase Cloud DB with in-flight deduplication.
    */
   public async lookupRoomStateAsync(): Promise<GameRoom | null> {
+    if (this.inFlightLookup) {
+      return this.inFlightLookup;
+    }
+
     const supabase = getSupabaseClient();
     if (!supabase || !isSupabaseConfigured) return null;
 
-    try {
-      const { data, error } = await supabase
-        .from('quiz_rooms')
-        .select('*')
-        .eq('room_code', this.roomCode)
-        .maybeSingle();
+    this.inFlightLookup = (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('quiz_rooms')
+          .select('id, room_code, host_id, creator_id, creator_name, quiz, status, current_question_index, question_started_at, scheduled_start_at, is_public, max_candidates, settings, players, last_revealed_answer')
+          .eq('room_code', this.roomCode)
+          .maybeSingle();
 
-      if (data && !error) {
-        return {
-          id: data.id,
-          roomCode: data.room_code,
-          hostId: data.host_id,
-          creatorId: data.creator_id,
-          creatorName: data.creator_name,
-          quiz: data.quiz,
-          status: data.status,
-          currentQuestionIndex: data.current_question_index || 0,
-          questionStartedAt: data.question_started_at,
-          scheduledStartAt: data.scheduled_start_at,
-          isPublic: data.is_public !== false,
-          maxCandidates: data.max_candidates,
-          settings: data.settings || {
-            timePerQuestion: 15,
-            speedBonus: true,
-            streakBonus: true,
-            showExplanations: true,
-            aiCommentaryEnabled: true,
-          },
-          players: data.players || {},
-          lastRevealedAnswer: data.last_revealed_answer,
-        };
+        if (data && !error) {
+          return {
+            id: data.id,
+            roomCode: data.room_code,
+            hostId: data.host_id,
+            creatorId: data.creator_id,
+            creatorName: data.creator_name,
+            quiz: data.quiz,
+            status: data.status,
+            currentQuestionIndex: data.current_question_index || 0,
+            questionStartedAt: data.question_started_at,
+            scheduledStartAt: data.scheduled_start_at,
+            isPublic: data.is_public !== false,
+            maxCandidates: data.max_candidates,
+            settings: data.settings || {
+              timePerQuestion: 15,
+              speedBonus: true,
+              streakBonus: true,
+              showExplanations: true,
+              aiCommentaryEnabled: true,
+            },
+            players: data.players || {},
+            lastRevealedAnswer: data.last_revealed_answer,
+          };
+        }
+      } catch (err) {
+        console.warn('Failed to direct lookup room state:', err);
+      } finally {
+        setTimeout(() => {
+          this.inFlightLookup = null;
+        }, 300);
       }
-    } catch (err) {
-      console.warn('Failed to direct lookup room state:', err);
-    }
-    return null;
+      return null;
+    })();
+
+    return this.inFlightLookup;
   }
 
 
