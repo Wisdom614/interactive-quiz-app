@@ -13,8 +13,9 @@ interface PodiumProps {
   isHost?: boolean;
 }
 
-export function Podium({ players, onPlayAgain, isHost }: PodiumProps) {
-  const sorted = [...players].sort((a, b) => b.score - a.score);
+export function Podium({ players = [], onPlayAgain, isHost }: PodiumProps) {
+  const safePlayers = Array.isArray(players) ? players : [];
+  const sorted = [...safePlayers].sort((a, b) => (b?.score || 0) - (a?.score || 0));
   const first = sorted[0];
   const second = sorted[1];
   const third = sorted[2];
@@ -26,20 +27,22 @@ export function Podium({ players, onPlayAgain, isHost }: PodiumProps) {
     const animationEnd = Date.now() + duration;
 
     const frame = () => {
-      confetti({
-        particleCount: 4,
-        angle: 60,
-        spread: 55,
-        origin: { x: 0, y: 0.7 },
-        colors: ['#2563eb', '#dc2626', '#059669', '#d97706', '#09090b']
-      });
-      confetti({
-        particleCount: 4,
-        angle: 120,
-        spread: 55,
-        origin: { x: 1, y: 0.7 },
-        colors: ['#2563eb', '#dc2626', '#059669', '#d97706', '#09090b']
-      });
+      try {
+        confetti({
+          particleCount: 4,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0, y: 0.7 },
+          colors: ['#2563eb', '#dc2626', '#059669', '#d97706', '#09090b']
+        });
+        confetti({
+          particleCount: 4,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1, y: 0.7 },
+          colors: ['#2563eb', '#dc2626', '#059669', '#d97706', '#09090b']
+        });
+      } catch {}
 
       if (Date.now() < animationEnd) {
         requestAnimationFrame(frame);
@@ -71,10 +74,10 @@ export function Podium({ players, onPlayAgain, isHost }: PodiumProps) {
               <div className="flex flex-col items-center mb-2.5">
                 <VectorAvatar id={second.avatar || 'v_cpu'} size="lg" />
                 <span className="text-xs font-mono font-bold text-zinc-950 mt-1 max-w-[100px] truncate text-center">
-                  {second.nickname}
+                  {second.nickname || 'Player'}
                 </span>
                 <span className="text-[10px] font-mono text-zinc-500 font-bold">
-                  {second.score.toLocaleString()} points
+                  {(second.score || 0).toLocaleString()} points
                 </span>
               </div>
               <div className="w-full h-32 sm:h-40 bg-zinc-200 border-2 border-zinc-900 flex flex-col items-center justify-start pt-3 rounded-none shadow-sm">
@@ -97,10 +100,10 @@ export function Podium({ players, onPlayAgain, isHost }: PodiumProps) {
                 </div>
                 <VectorAvatar id={first.avatar || 'v_zap'} size="xl" className="border-2 border-zinc-900 bg-amber-50" />
                 <span className="text-sm font-mono font-black text-zinc-950 mt-1 max-w-[120px] truncate text-center">
-                  {first.nickname}
+                  {first.nickname || 'Winner'}
                 </span>
                 <span className="text-xs font-mono font-bold text-amber-700">
-                  {first.score.toLocaleString()} points
+                  {(first.score || 0).toLocaleString()} points
                 </span>
               </div>
               <div className="w-full h-44 sm:h-52 bg-amber-300 border-2 border-zinc-900 flex flex-col items-center justify-start pt-3 rounded-none shadow-sm">
@@ -111,7 +114,9 @@ export function Podium({ players, onPlayAgain, isHost }: PodiumProps) {
                 </span>
               </div>
             </>
-          ) : null}
+          ) : (
+            <div className="w-full h-44 bg-zinc-100 border-2 border-dashed border-zinc-300 rounded-none" />
+          )}
         </div>
 
         {/* 3rd Place */}
@@ -121,10 +126,10 @@ export function Podium({ players, onPlayAgain, isHost }: PodiumProps) {
               <div className="flex flex-col items-center mb-2.5">
                 <VectorAvatar id={third.avatar || 'v_flame'} size="lg" />
                 <span className="text-xs font-mono font-bold text-zinc-950 mt-1 max-w-[100px] truncate text-center">
-                  {third.nickname}
+                  {third.nickname || 'Player'}
                 </span>
                 <span className="text-[10px] font-mono text-zinc-500 font-bold">
-                  {third.score.toLocaleString()} points
+                  {(third.score || 0).toLocaleString()} points
                 </span>
               </div>
               <div className="w-full h-24 sm:h-28 bg-orange-200 border-2 border-zinc-900 flex flex-col items-center justify-start pt-2.5 rounded-none shadow-sm">
@@ -144,13 +149,13 @@ export function Podium({ players, onPlayAgain, isHost }: PodiumProps) {
           <h4 className="text-[10px] font-mono uppercase tracking-widest font-bold text-zinc-500 mb-2">Other Players</h4>
           <div className="flex flex-col gap-1">
             {sorted.slice(3).map((p, idx) => (
-              <div key={p.id} className="flex items-center justify-between text-xs py-1 px-2 bg-zinc-50 border border-zinc-200 rounded-none">
+              <div key={p.id || idx} className="flex items-center justify-between text-xs py-1 px-2 bg-zinc-50 border border-zinc-200 rounded-none">
                 <div className="flex items-center gap-2">
                   <span className="text-zinc-500 font-mono font-bold w-4">{idx + 4}</span>
                   <VectorAvatar id={p.avatar || 'v_target'} size="sm" />
-                  <span className="text-zinc-950 font-mono font-semibold">{p.nickname}</span>
+                  <span className="text-zinc-950 font-mono font-semibold">{p.nickname || 'Player'}</span>
                 </div>
-                <span className="text-zinc-600 font-mono">{p.score.toLocaleString()} points</span>
+                <span className="text-zinc-600 font-mono">{(p.score || 0).toLocaleString()} points</span>
               </div>
             ))}
           </div>

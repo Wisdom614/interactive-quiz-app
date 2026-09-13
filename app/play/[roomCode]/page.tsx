@@ -888,21 +888,23 @@ function PlayGameContent() {
                 Accuracy: {Math.round((correctCount / totalQuestions) * 100)}%
               </span>
               <span className="px-2 py-0.5 bg-amber-50 border border-amber-900 text-amber-950">
-                {score.toLocaleString()} PTS Earned
+                {(score || 0).toLocaleString()} PTS Earned
               </span>
             </div>
           </div>
 
           <Podium
-            players={Object.values(room.players)}
+            players={Object.values(room.players || {})}
             onPlayAgain={() => router.push('/')}
           />
 
           {/* Full Post-Quiz Solutions & Candidate Choices Breakdown */}
-          <QuizAnswersReview
-            quiz={room.quiz}
-            player={room.players?.[playerId]}
-          />
+          {room.quiz && (
+            <QuizAnswersReview
+              quiz={room.quiz}
+              player={room.players?.[playerId] || { id: playerId, nickname: currentNickname, avatar: currentAvatar, score: score || 0, streak: streak || 0, answers: {} }}
+            />
+          )}
         </div>
       )}
     </div>

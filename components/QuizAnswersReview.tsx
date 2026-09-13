@@ -20,9 +20,14 @@ export function QuizAnswersReview({ quiz, player, players }: QuizAnswersReviewPr
     setExpandedIndex((prev) => (prev === idx ? null : idx));
   };
 
-  const totalQuestions = quiz.questions.length;
+  const questions = quiz?.questions && Array.isArray(quiz.questions) ? quiz.questions : [];
+  const totalQuestions = questions.length;
   const playerAnswers = player?.answers || {};
-  const correctCount = Object.values(playerAnswers).filter((a) => a.isCorrect).length;
+  const correctCount = Object.values(playerAnswers).filter((a) => a?.isCorrect).length;
+
+  if (totalQuestions === 0) {
+    return null;
+  }
 
   return (
     <div className="w-full bg-white border-2 border-zinc-900 p-4 sm:p-6 rounded-none shadow-sm flex flex-col gap-4">

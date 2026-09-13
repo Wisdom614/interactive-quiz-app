@@ -64,6 +64,12 @@ export default function HostGamePage() {
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const autoAdvanceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const roomRef = useRef<GameRoom | null>(null);
+
+  // Keep roomRef in sync with latest room state
+  useEffect(() => {
+    roomRef.current = room;
+  }, [room]);
 
   useEffect(() => {
     if (!roomCode) return;
@@ -71,6 +77,7 @@ export default function HostGamePage() {
     const existing = manager.getSavedRoom();
 
     if (existing) {
+      roomRef.current = existing;
       setRoom(existing);
     }
 
@@ -159,6 +166,7 @@ export default function HostGamePage() {
 
           if (changed) {
             const mergedRoom = { ...prev, players: mergedPlayers };
+            roomRef.current = mergedRoom;
             manager.saveRoom(mergedRoom);
             manager.broadcast({
               type: 'ROOM_SYNC',
@@ -194,7 +202,7 @@ export default function HostGamePage() {
     const manager = getRoomManager(roomCode);
 
     if (event.type === 'SYNC_REQUEST') {
-      const current = room || manager.getSavedRoom();
+      const current = roomRef.current || room || manager.getSavedRoom();
       if (current) {
         manager.broadcast({
           type: 'ROOM_SYNC',
@@ -207,6 +215,7 @@ export default function HostGamePage() {
         if (!prev) return null;
         const updatedPlayers = { ...prev.players, [event.player.id]: event.player };
         const updatedRoom = { ...prev, players: updatedPlayers };
+        roomRef.current = updatedRoom;
         manager.saveRoom(updatedRoom);
         manager.broadcast({
           type: 'ROOM_SYNC',
@@ -220,6 +229,7 @@ export default function HostGamePage() {
         const updated = { ...prev.players };
         delete updated[event.playerId];
         const updatedRoom = { ...prev, players: updated };
+        roomRef.current = updatedRoom;
         manager.saveRoom(updatedRoom);
         return updatedRoom;
       });
@@ -227,6 +237,7 @@ export default function HostGamePage() {
       setRoom((prev) => {
         if (!prev) return null;
         const updatedRoom = { ...prev, quiz: event.quiz };
+        roomRef.current = updatedRoom;
         getRoomManager(roomCode).saveRoom(updatedRoom);
         return updatedRoom;
       });
@@ -238,12 +249,13 @@ export default function HostGamePage() {
         if (!player) return prev;
 
         const currentQ = prev.quiz.questions[event.questionIndex];
-        const isCorrect = event.selectedIndex === currentQ.correctIndex;
+        const isCorrect = event.selectedIndex === currentQ?.correctIndex;
         
-        const timeFraction = Math.max(0, 1 - (event.responseTimeMs / (currentQ.timeLimit * 1000)));
+        const duration = currentQ?.timeLimit || 15;
+        const timeFraction = Math.max(0, 1 - (event.responseTimeMs / (duration * 1000)));
         const speedBonus = Math.round(timeFraction * 500);
-        const streakBonus = isCorrect ? (player.streak) * 100 : 0;
-        const pointsEarned = isCorrect ? ((currentQ.points || 1000) + speedBonus + streakBonus) : 0;
+        const streakBonus = isCorrect ? (player.streak || 0) * 100 : 0;
+        const pointsEarned = isCorrect ? ((currentQ?.points || 1000) + speedBonus + streakBonus) : 0;
 
         const answerRecord = {
           questionIndex: event.questionIndex,
@@ -258,14 +270,15 @@ export default function HostGamePage() {
 
         const updatedPlayer: Player = {
           ...player,
-          score: player.score + pointsEarned,
-          streak: isCorrect ? player.streak + 1 : 0,
+          score: (player.score || 0) + pointsEarned,
+          streak: isCorrect ? (player.streak || 0) + 1 : 0,
           lastAnswer: answerRecord,
           answers: updatedAnswers,
         };
 
         const updatedPlayers = { ...prev.players, [event.playerId]: updatedPlayer };
         const updatedRoom = { ...prev, players: updatedPlayers };
+        roomRef.current = updatedRoom;
         getRoomManager(roomCode).saveRoom(updatedRoom);
 
         // Check if all connected candidates have answered this round
@@ -290,7 +303,6 @@ export default function HostGamePage() {
   };
 
   const handleStartGame = () => {
-    if (!room) return;
     sound.playStreak();
     startQuestion(0);
   };
@@ -298,9 +310,11 @@ export default function HostGamePage() {
   const startQuestion = (index: number) => {
     if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
     if (timerRef.current) clearInterval(timerRef.current);
-    if (!room) return;
+    
+    const active = roomRef.current || room;
+    if (!active || !active.quiz) return;
 
-    const q = room.quiz.questions[index];
+    const q = active.quiz.questions[index];
     if (!q) {
       finishGame();
       return;
@@ -311,12 +325,13 @@ export default function HostGamePage() {
     setTimeLeft(duration);
 
     const updatedRoom: GameRoom = {
-      ...room,
+      ...active,
       status: 'QUESTION',
       currentQuestionIndex: index,
       questionStartedAt: startedAt,
     };
 
+    roomRef.current = updatedRoom;
     setRoom(updatedRoom);
     const manager = getRoomManager(roomCode);
     manager.saveRoom(updatedRoom);
@@ -358,11 +373,13 @@ export default function HostGamePage() {
   const advanceToNextQuestion = () => {
     if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
     if (timerRef.current) clearInterval(timerRef.current);
-    if (!room) return;
+    
+    const active = roomRef.current || room;
+    if (!active || !active.quiz) return;
 
     sound.playSelect();
-    const nextIdx = room.currentQuestionIndex + 1;
-    if (nextIdx < room.quiz.questions.length) {
+    const nextIdx = active.currentQuestionIndex + 1;
+    if (nextIdx < active.quiz.questions.length) {
       startQuestion(nextIdx);
     } else {
       finishGame();
@@ -372,14 +389,33 @@ export default function HostGamePage() {
   const finishGame = () => {
     if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
     if (timerRef.current) clearInterval(timerRef.current);
-    if (!room) return;
+    
+    const active = roomRef.current || room;
+    if (!active || !active.quiz) return;
 
     sound.playVictory();
+
+    // Ensure all players have their authoritative score calculated from answer records
+    const finalPlayers: Record<string, Player> = {};
+    Object.values(active.players || {}).forEach((p) => {
+      let calcScore = p.score || 0;
+      if (p.answers && Object.keys(p.answers).length > 0) {
+        const sum = Object.values(p.answers).reduce((acc, a) => acc + (a.pointsEarned || 0), 0);
+        calcScore = Math.max(calcScore, sum);
+      }
+      finalPlayers[p.id] = {
+        ...p,
+        score: calcScore,
+      };
+    });
+
     const updatedRoom: GameRoom = {
-      ...room,
+      ...active,
       status: 'GAME_OVER',
+      players: finalPlayers,
     };
 
+    roomRef.current = updatedRoom;
     setRoom(updatedRoom);
     const manager = getRoomManager(roomCode);
     manager.saveRoom(updatedRoom);
@@ -387,12 +423,12 @@ export default function HostGamePage() {
     manager.broadcast({
       type: 'STATE_CHANGE',
       status: 'GAME_OVER',
-      currentQuestionIndex: room.currentQuestionIndex,
+      currentQuestionIndex: active.currentQuestionIndex,
       timestamp: Date.now(),
     });
     manager.broadcast({
       type: 'SCORES_UPDATED',
-      players: updatedRoom.players,
+      players: finalPlayers,
     });
     manager.broadcast({
       type: 'ROOM_SYNC',
