@@ -282,13 +282,18 @@ function PlayGameContent() {
           // Merge players non-destructively
           const localPlayer = prev.players?.[playerId];
           const dbPlayer = dbRoom.players?.[playerId];
+          const mergedAnswers = { ...(dbPlayer?.answers || {}), ...(localPlayer?.answers || {}) };
+          const authoritativeScore = Object.values(mergedAnswers).reduce(
+            (sum, a) => sum + (a?.pointsEarned || 0),
+            0
+          );
           const mergedSelf: Player = {
             id: playerId,
             nickname: currentNickname,
             avatar: currentAvatar,
-            score: Math.max(localPlayer?.score || 0, dbPlayer?.score || 0),
+            score: authoritativeScore > 0 ? authoritativeScore : Math.max(localPlayer?.score || 0, dbPlayer?.score || 0),
             streak: Math.max(localPlayer?.streak || 0, dbPlayer?.streak || 0),
-            answers: { ...(dbPlayer?.answers || {}), ...(localPlayer?.answers || {}) },
+            answers: mergedAnswers,
             lastAnswer: localPlayer?.lastAnswer || dbPlayer?.lastAnswer,
           };
 
@@ -318,18 +323,14 @@ function PlayGameContent() {
     return () => clearInterval(interval);
   }, [roomCode, hasJoinedLobby, currentNickname, currentAvatar, playerId]);
 
-  // Keyboard shortcut listener (1-4, A-D)
+  // Handle keyboard hotkeys for instant answers (Keys 1-4)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (hasLockedIn || !room || room.status !== 'QUESTION') return;
-      const keyMap: Record<string, number> = {
-        '1': 0, 'a': 0, 'A': 0,
-        '2': 1, 'b': 1, 'B': 1,
-        '3': 2, 'c': 2, 'C': 2,
-        '4': 3, 'd': 3, 'D': 3,
-      };
-      if (keyMap[e.key] !== undefined) {
-        handleSelectOption(keyMap[e.key]);
+      const key = e.key;
+      if (['1', '2', '3', '4'].includes(key)) {
+        const idx = parseInt(key, 10) - 1;
+        handleSelectOption(idx);
       }
     };
 
@@ -343,13 +344,18 @@ function PlayGameContent() {
         if (!prev) return event.room;
         const localSelf = prev.players?.[playerId];
         const serverSelf = event.room.players?.[playerId];
+        const mergedAnswers = { ...(serverSelf?.answers || {}), ...(localSelf?.answers || {}) };
+        const authoritativeScore = Object.values(mergedAnswers).reduce(
+          (sum, a) => sum + (a?.pointsEarned || 0),
+          0
+        );
         const mergedSelf: Player = {
           id: playerId,
           nickname: currentNickname,
           avatar: currentAvatar,
-          score: Math.max(localSelf?.score || 0, serverSelf?.score || 0),
+          score: authoritativeScore > 0 ? authoritativeScore : Math.max(localSelf?.score || 0, serverSelf?.score || 0),
           streak: Math.max(localSelf?.streak || 0, serverSelf?.streak || 0),
-          answers: { ...(serverSelf?.answers || {}), ...(localSelf?.answers || {}) },
+          answers: mergedAnswers,
           lastAnswer: localSelf?.lastAnswer || serverSelf?.lastAnswer,
         };
 
@@ -492,13 +498,19 @@ function PlayGameContent() {
         streak: 0,
       };
       const updatedAnswers = { ...(prevPlayer.answers || {}), [room.currentQuestionIndex]: answerRecord };
+      const authoritativeScore = Object.values(updatedAnswers).reduce(
+        (sum, a) => sum + (a?.pointsEarned || 0),
+        0
+      );
       const updatedPlayer: Player = {
         ...prevPlayer,
-        score: prevPlayer.score + pointsEarned,
-        streak: isCorrect ? prevPlayer.streak + 1 : 0,
+        score: authoritativeScore,
+        streak: isCorrect ? (prevPlayer.streak || 0) + 1 : 0,
         lastAnswer: answerRecord,
         answers: updatedAnswers,
       };
+      setScore(authoritativeScore);
+      setStreak(isCorrect ? (prevPlayer.streak || 0) + 1 : 0);
       return {
         ...prev,
         players: {
@@ -669,9 +681,13 @@ function PlayGameContent() {
 
   const currentQ = room.quiz?.questions?.[room.currentQuestionIndex];
   const myPlayer = room.players?.[playerId];
+  const myAnswers = Object.values(myPlayer?.answers || {});
+  const authoritativeScore = myAnswers.length > 0
+    ? myAnswers.reduce((sum, a) => sum + (a?.pointsEarned || 0), 0)
+    : (score || 0);
   const totalQuestions = room.quiz?.questions?.length || 1;
-  const correctCount = myPlayer?.answers
-    ? Object.values(myPlayer.answers).filter((a) => a.isCorrect).length
+  const correctCount = myAnswers.length > 0
+    ? myAnswers.filter((a) => a?.isCorrect).length
     : (lastRoundResult?.isCorrect ? 1 : 0);
 
   return (
@@ -703,7 +719,7 @@ function PlayGameContent() {
             {correctCount} / {totalQuestions} Correct
           </span>
           <span className="text-[8px] font-mono text-zinc-500 block uppercase tracking-widest -mt-0.5">
-            {score.toLocaleString()} PTS
+            {authoritativeScore.toLocaleString()} PTS
           </span>
         </div>
       </div>
@@ -924,7 +940,7 @@ function PlayGameContent() {
                 Accuracy: {Math.round((correctCount / totalQuestions) * 100)}%
               </span>
               <span className="px-2 py-0.5 bg-amber-50 border border-amber-900 text-amber-950">
-                {(score || 0).toLocaleString()} PTS Earned
+                {authoritativeScore.toLocaleString()} PTS Earned
               </span>
             </div>
           </div>

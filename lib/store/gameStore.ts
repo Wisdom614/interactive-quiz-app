@@ -175,11 +175,16 @@ export class GameRoomManager {
             if (!localP) {
               mergedPlayers[pid] = dbP;
             } else {
+              const mergedAnswers: Record<number, any> = { ...(dbP.answers || {}), ...(localP.answers || {}) };
+              const authoritativeScore: number = Object.values(mergedAnswers).reduce(
+                (sum: number, a: any) => sum + (Number(a?.pointsEarned) || 0),
+                0
+              );
               mergedPlayers[pid] = {
                 ...localP,
-                score: Math.max(localP.score || 0, dbP.score || 0),
+                score: authoritativeScore > 0 ? authoritativeScore : Math.max(localP.score || 0, dbP.score || 0),
                 streak: Math.max(localP.streak || 0, dbP.streak || 0),
-                answers: { ...(dbP.answers || {}), ...(localP.answers || {}) },
+                answers: mergedAnswers,
                 lastAnswer: localP.lastAnswer || dbP.lastAnswer,
               };
             }
@@ -327,13 +332,18 @@ export class GameRoomManager {
           pointsEarned,
         };
 
-        const updatedAnswers = { ...(p.answers || {}) };
+        const updatedAnswers: Record<number, any> = { ...(p.answers || {}) };
         updatedAnswers[questionIndex] = answerRecord;
+
+        const authoritativeScore: number = Object.values(updatedAnswers).reduce(
+          (sum: number, a: any) => sum + (Number(a?.pointsEarned) || 0),
+          0
+        );
 
         existingPlayers[playerId] = {
           ...p,
-          score: p.score + pointsEarned,
-          streak: isCorrect ? p.streak + 1 : 0,
+          score: authoritativeScore,
+          streak: isCorrect ? (p.streak || 0) + 1 : 0,
           lastAnswer: answerRecord,
           answers: updatedAnswers,
         };

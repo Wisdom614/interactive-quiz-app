@@ -168,19 +168,23 @@ export default function HostGamePage() {
               mergedPlayers[pid] = dbP;
               changed = true;
             } else {
-              // If DB player has a newer answer for the current question that local is missing
-              const dbAns = dbP.lastAnswer;
-              const localAns = localP.lastAnswer;
+              const dbAns = dbP?.lastAnswer;
+              const localAns = localP?.lastAnswer;
+              const mergedAnswers: Record<number, any> = { ...(localP.answers || {}), ...(dbP.answers || {}) };
+              const authoritativeScore: number = Object.values(mergedAnswers).reduce(
+                (sum: number, a: any) => sum + (Number(a?.pointsEarned) || 0),
+                0
+              );
               if (
                 dbAns &&
                 (!localAns || dbAns.questionIndex !== localAns.questionIndex || dbAns.responseTimeMs !== localAns.responseTimeMs)
               ) {
                 mergedPlayers[pid] = {
                   ...localP,
-                  score: Math.max(localP.score || 0, dbP.score || 0),
+                  score: authoritativeScore > 0 ? authoritativeScore : Math.max(localP.score || 0, dbP.score || 0),
                   streak: Math.max(localP.streak || 0, dbP.streak || 0),
                   lastAnswer: dbAns,
-                  answers: { ...(localP.answers || {}), ...(dbP.answers || {}) },
+                  answers: mergedAnswers,
                 };
                 changed = true;
               }
@@ -291,9 +295,14 @@ export default function HostGamePage() {
         const updatedAnswers = { ...(player.answers || {}) };
         updatedAnswers[event.questionIndex] = answerRecord;
 
+        const authoritativeScore = Object.values(updatedAnswers).reduce(
+          (sum, a) => sum + (a?.pointsEarned || 0),
+          0
+        );
+
         const updatedPlayer: Player = {
           ...player,
-          score: (player.score || 0) + pointsEarned,
+          score: authoritativeScore,
           streak: isCorrect ? (player.streak || 0) + 1 : 0,
           lastAnswer: answerRecord,
           answers: updatedAnswers,

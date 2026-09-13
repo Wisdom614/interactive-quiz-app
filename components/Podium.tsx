@@ -21,13 +21,10 @@ export function Podium({ players = [], onPlayAgain, isHost, totalQuestions, quiz
   const qCount = totalQuestions || quiz?.questions?.length || 0;
 
   const safePlayers = (Array.isArray(players) ? players : []).map((p) => {
-    let score = p?.score || 0;
     const pAnswers = p?.answers || {};
     const ansList = Object.values(pAnswers);
-    if (ansList.length > 0) {
-      const sum = ansList.reduce((acc, a) => acc + (a?.pointsEarned || 0), 0);
-      score = Math.max(score, sum);
-    }
+    const sum = ansList.reduce((acc, a) => acc + (a?.pointsEarned || 0), 0);
+    const score = ansList.length > 0 ? sum : (p?.score || 0);
 
     const correctCount = ansList.filter((a) => a?.isCorrect).length;
     const totalQ = qCount > 0 ? qCount : Math.max(ansList.length, 1);

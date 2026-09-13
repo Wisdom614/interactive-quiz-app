@@ -81,10 +81,15 @@ export async function POST(
     const updatedAnswers = { ...(player.answers || {}) };
     updatedAnswers[questionIndex] = answerRecord;
 
+    const totalCalculatedScore = Object.values(updatedAnswers).reduce(
+      (sum, a) => sum + (a?.pointsEarned || 0),
+      0
+    );
+
     const updatedPlayer: Player = {
       ...player,
-      score: player.score + pointsEarned,
-      streak: isCorrect ? player.streak + 1 : 0,
+      score: totalCalculatedScore,
+      streak: isCorrect ? (player.streak || 0) + 1 : 0,
       lastAnswer: answerRecord,
       answers: updatedAnswers,
     };
