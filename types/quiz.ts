@@ -36,19 +36,22 @@ export interface Quiz {
   creatorId?: string;
 }
 
+export interface PlayerAnswerRecord {
+  questionIndex: number;
+  selectedIndex: number;
+  isCorrect: boolean;
+  responseTimeMs: number;
+  pointsEarned: number;
+}
+
 export interface Player {
   id: string;
   nickname: string;
   avatar: string;
   score: number;
   streak: number;
-  lastAnswer?: {
-    questionIndex: number;
-    selectedIndex: number;
-    isCorrect: boolean;
-    responseTimeMs: number;
-    pointsEarned: number;
-  };
+  lastAnswer?: PlayerAnswerRecord;
+  answers?: Record<number, PlayerAnswerRecord>;
   isHost?: boolean;
   joinedAt?: number;
 }

@@ -5,13 +5,14 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
   BrainCircuit, Sparkles, Timer, CheckCircle2, XCircle, Flame, Trophy,
   RotateCcw, ArrowRight, ArrowLeft, Bot, User, Zap,
-  Triangle, Diamond, Circle, Square
+  Triangle, Diamond, Circle, Square, FastForward
 } from 'lucide-react';
-import { Quiz, QuizQuestion } from '@/types/quiz';
+import { Quiz, QuizQuestion, Player } from '@/types/quiz';
 import { sound } from '@/lib/audio/soundEngine';
 import { Podium } from '@/components/Podium';
 import { VectorAvatar } from '@/components/VectorAvatar';
 import { MathText } from '@/components/MathText';
+import { QuizAnswersReview } from '@/components/QuizAnswersReview';
 
 const SHAPE_CONTROLS = [
   { bg: 'bg-rose-50 border-rose-900 text-rose-950 hover:bg-rose-100', solidBg: 'bg-rose-600', code: 'A' },
@@ -31,11 +32,11 @@ function SoloGameContent() {
   const [streak, setStreak] = useState(0);
   const [timeLeft, setTimeLeft] = useState(15);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
-  const [isAnswerRevealed, setIsAnswerRevealed] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
-  const [botAnswerState, setBotAnswerState] = useState<{ isCorrect: boolean; text: string } | null>(null);
+  const [userAnswers, setUserAnswers] = useState<Record<number, { questionIndex: number; selectedIndex: number; isCorrect: boolean; responseTimeMs: number; pointsEarned: number }>>({});
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const autoAdvanceRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const stored = sessionStorage.getItem('quizpulse_solo_quiz');
@@ -51,6 +52,11 @@ function SoloGameContent() {
     }
 
     fetchDefaultQuiz();
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current);
+    };
   }, []);
 
   const fetchDefaultQuiz = async () => {
@@ -84,14 +90,13 @@ function SoloGameContent() {
 
     setCurrentIdx(index);
     setSelectedOption(null);
-    setIsAnswerRevealed(false);
-    setBotAnswerState(null);
     const duration = q.timeLimit || 15;
     setTimeLeft(duration);
 
     if (timerRef.current) clearInterval(timerRef.current);
-    let remaining = duration;
+    if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current);
 
+    let remaining = duration;
     timerRef.current = setInterval(() => {
       remaining -= 1;
       setTimeLeft(remaining);
@@ -103,21 +108,25 @@ function SoloGameContent() {
 
       if (remaining <= 0) {
         if (timerRef.current) clearInterval(timerRef.current);
-        handleReveal(null, targetQuiz, index);
+        advanceQuestion(null, targetQuiz, index);
       }
     }, 1000);
   };
 
   const handleSelect = (idx: number) => {
-    if (selectedOption !== null || isAnswerRevealed || !quiz) return;
+    if (selectedOption !== null || !quiz) return;
     sound.playSelect();
     setSelectedOption(idx);
     if (timerRef.current) clearInterval(timerRef.current);
-    handleReveal(idx, quiz, currentIdx);
+
+    // Brief 800ms lock-in animation, then proceed straight to next question
+    if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current);
+    autoAdvanceRef.current = setTimeout(() => {
+      advanceQuestion(idx, quiz, currentIdx);
+    }, 800);
   };
 
-  const handleReveal = (userChoice: number | null, activeQuiz: Quiz, qIndex: number) => {
-    setIsAnswerRevealed(true);
+  const advanceQuestion = (userChoice: number | null, activeQuiz: Quiz, qIndex: number) => {
     const q = activeQuiz.questions[qIndex];
     const isUserCorrect = userChoice === q.correctIndex;
 
@@ -125,29 +134,33 @@ function SoloGameContent() {
     const botPoints = botCorrect ? Math.round(q.points * 0.9) : 0;
     setBotScore((prev) => prev + botPoints);
 
+    let points = 0;
     if (isUserCorrect) {
-      sound.playCorrect();
       const speedFraction = Math.max(0, timeLeft / q.timeLimit);
-      const points = Math.round(q.points + speedFraction * 400 + streak * 100);
+      points = Math.round(q.points + speedFraction * 400 + streak * 100);
       setUserScore((prev) => prev + points);
       setStreak((prev) => prev + 1);
     } else {
-      sound.playWrong();
       setStreak(0);
     }
 
-    setBotAnswerState({
-      isCorrect: botCorrect,
-      text: botCorrect ? 'The computer answered correctly in 1.5s!' : 'The computer picked the wrong answer!',
-    });
-  };
+    if (userChoice !== null) {
+      setUserAnswers((prev) => ({
+        ...prev,
+        [qIndex]: {
+          questionIndex: qIndex,
+          selectedIndex: userChoice,
+          isCorrect: isUserCorrect,
+          responseTimeMs: (q.timeLimit - timeLeft) * 1000,
+          pointsEarned: points,
+        },
+      }));
+    }
 
-  const handleNext = () => {
-    if (!quiz) return;
-    sound.playClick();
-    if (currentIdx + 1 < quiz.questions.length) {
-      startQuestion(quiz, currentIdx + 1);
+    if (qIndex + 1 < activeQuiz.questions.length) {
+      startQuestion(activeQuiz, qIndex + 1);
     } else {
+      sound.playVictory();
       setIsGameOver(true);
     }
   };
@@ -164,21 +177,28 @@ function SoloGameContent() {
   const currentQ = quiz.questions[currentIdx];
 
   if (isGameOver) {
-    const soloPlayers = [
-      { id: 'user', nickname: 'You (Player)', avatar: 'v_eye', score: userScore, streak: 0 },
+    const soloPlayers: Player[] = [
+      { id: 'user', nickname: 'You (Player)', avatar: 'v_eye', score: userScore, streak: 0, answers: userAnswers },
       { id: 'grok_bot', nickname: 'Computer (AI)', avatar: 'v_bot', score: botScore, streak: 0 },
     ];
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-4">
+      <div className="flex-1 max-w-4xl mx-auto w-full flex flex-col items-center justify-center p-4 gap-6">
         <Podium
           players={soloPlayers}
           onPlayAgain={() => {
             setUserScore(0);
             setBotScore(0);
             setStreak(0);
+            setUserAnswers({});
             setIsGameOver(false);
             fetchDefaultQuiz();
           }}
+        />
+
+        {/* Complete Solutions Review */}
+        <QuizAnswersReview
+          quiz={quiz}
+          player={soloPlayers[0]}
         />
       </div>
     );
@@ -216,10 +236,20 @@ function SoloGameContent() {
           </div>
         </div>
 
-        {/* Timer */}
-        <div className="flex items-center gap-1 px-2.5 py-1 bg-zinc-100 text-zinc-950 font-mono font-bold text-xs border border-zinc-900 rounded-none">
-          <Timer className="w-3.5 h-3.5" />
-          <span>{timeLeft}s</span>
+        {/* Timer & Fast Forward */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 px-2.5 py-1 bg-zinc-100 text-zinc-950 font-mono font-bold text-xs border border-zinc-900 rounded-none">
+            <Timer className="w-3.5 h-3.5" />
+            <span>{timeLeft}s</span>
+          </div>
+          <button
+            onClick={() => advanceQuestion(selectedOption, quiz, currentIdx)}
+            className="flex items-center gap-1 px-2.5 py-1 bg-zinc-950 hover:bg-blue-600 text-white font-mono font-bold text-xs uppercase border border-zinc-900 rounded-none"
+            title="Skip to next question"
+          >
+            <span>Skip</span>
+            <FastForward className="w-3 h-3" />
+          </button>
         </div>
       </div>
 
@@ -238,28 +268,19 @@ function SoloGameContent() {
         {currentQ.options.map((opt, idx) => {
           const theme = SHAPE_CONTROLS[idx % SHAPE_CONTROLS.length];
           const isSelected = selectedOption === idx;
-          const isCorrect = idx === currentQ.correctIndex;
 
-          let btnStyle = `${theme.bg} border-2 ${theme.solidBg.replace('bg-', 'border-')} text-zinc-950`;
-
-          if (isAnswerRevealed) {
-            if (isCorrect) {
-              btnStyle = 'bg-emerald-100 border-2 border-emerald-900 text-emerald-950 font-bold';
-            } else if (isSelected) {
-              btnStyle = 'bg-rose-100 border-2 border-rose-900 text-rose-950';
-            } else {
-              btnStyle = 'bg-zinc-100 border-2 border-zinc-300 opacity-40 text-zinc-500';
-            }
+          let btnStyle = `${theme.bg} border-2 border-zinc-900 text-zinc-950`;
+          if (isSelected) {
+            btnStyle = 'bg-zinc-950 text-white border-2 border-zinc-950 shadow-md';
           }
 
           return (
             <button
               key={idx}
               onClick={() => handleSelect(idx)}
-              disabled={isAnswerRevealed}
               className={`flex items-center gap-3 p-3.5 ${btnStyle} shadow-none transition-all active:translate-y-0.5 text-left font-mono font-bold text-xs rounded-none`}
             >
-              <div className={`w-6 h-6 ${theme.solidBg} text-white flex items-center justify-center font-mono font-black text-xs rounded-none border border-zinc-900 flex-shrink-0`}>
+              <div className={`w-6 h-6 ${isSelected ? 'bg-white text-zinc-950' : theme.solidBg + ' text-white'} flex items-center justify-center font-mono font-black text-xs rounded-none border border-zinc-900 flex-shrink-0`}>
                 {theme.code}
               </div>
               <span className="flex-1 overflow-hidden">
@@ -270,32 +291,10 @@ function SoloGameContent() {
         })}
       </div>
 
-      {/* Answer Reveal Panel */}
-      {isAnswerRevealed && (
-        <div className="bg-white border-2 border-zinc-900 p-3.5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3 rounded-none">
-          <div className="flex items-center gap-2 text-xs font-mono flex-1">
-            <Bot className="w-4 h-4 text-purple-700 flex-shrink-0" />
-            <div className="flex-1">
-              <p className="font-bold text-zinc-950">
-                <MathText text={currentQ.aiHostComment || 'Question finished.'} />
-              </p>
-              {currentQ.explanation && (
-                <p className="text-[10px] text-zinc-500">
-                  <MathText text={currentQ.explanation} />
-                </p>
-              )}
-            </div>
-          </div>
-
-          <button
-            onClick={handleNext}
-            className="flex items-center gap-1 px-4 py-2 bg-zinc-950 hover:bg-blue-600 text-white font-mono font-bold text-xs border-2 border-zinc-900 rounded-none active:translate-y-0.5 transition-all w-full sm:w-auto justify-center"
-          >
-            <span>{currentIdx + 1 < quiz.questions.length ? 'Next Question' : 'Show Results'}</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
+      {/* Footer info */}
+      <div className="text-center text-[10px] font-mono text-zinc-400">
+        Answers and verified solutions will be revealed on the final podium.
+      </div>
     </div>
   );
 }

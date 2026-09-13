@@ -15,6 +15,7 @@ import { Podium } from '@/components/Podium';
 import { VectorAvatar, VECTOR_AVATARS } from '@/components/VectorAvatar';
 import { AvatarSelector } from '@/components/AvatarSelector';
 import { MathText } from '@/components/MathText';
+import { QuizAnswersReview } from '@/components/QuizAnswersReview';
 
 const SHAPE_CONTROLS = [
   {
@@ -695,14 +696,18 @@ function PlayGameContent() {
           </div>
 
           {hasLockedIn ? (
-            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center gap-2 bg-white border-2 border-zinc-900 rounded-none shadow-sm">
+            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center gap-3 bg-white border-2 border-zinc-900 rounded-none shadow-sm">
               <div className="w-12 h-12 bg-zinc-950 text-white flex items-center justify-center border border-zinc-900 rounded-none">
-                <CheckCircle2 className="w-6 h-6" />
+                <CheckCircle2 className="w-6 h-6 text-emerald-400" />
               </div>
-              <h3 className="text-lg font-mono font-black text-zinc-950 uppercase">Answer Sent!</h3>
-              <p className="text-xs font-mono text-zinc-500">Waiting for time to finish...</p>
-              <div className="text-xs font-mono text-zinc-950 font-bold mt-1">
-                Your Time: {(responseTimeMs / 1000).toFixed(2)}s
+              <h3 className="text-lg font-mono font-black text-zinc-950 uppercase">
+                Option {selectedOption !== null ? SHAPE_CONTROLS[selectedOption]?.code : ''} Locked In!
+              </h3>
+              <p className="text-xs font-mono text-zinc-500">
+                Answer recorded &bull; Waiting for round {room.currentQuestionIndex + 1} to finish...
+              </p>
+              <div className="text-[11px] font-mono text-zinc-600 bg-zinc-100 px-3 py-1 border border-zinc-300">
+                Your Response Time: {(responseTimeMs / 1000).toFixed(2)}s
               </div>
             </div>
           ) : (
@@ -731,78 +736,21 @@ function PlayGameContent() {
       )}
 
       {/* ============================================================ */}
-      {/* 3. ANSWER REVEAL VIEW */}
-      {/* ============================================================ */}
-      {room.status === 'ANSWER_REVEAL' && (
-        <div className="flex-1 w-full flex flex-col items-center justify-center text-center gap-3 py-4">
-          {lastRoundResult?.isCorrect ? (
-            <div className="w-full bg-emerald-50 border-2 border-emerald-900 rounded-none p-5 shadow-sm flex flex-col items-center gap-2">
-              <div className="w-12 h-12 bg-emerald-700 text-white flex items-center justify-center border border-emerald-900 rounded-none">
-                <CheckCircle2 className="w-6 h-6" />
-              </div>
-              <h3 className="text-xl font-mono font-black text-emerald-950 uppercase">Correct Answer!</h3>
-              <span className="text-lg font-mono font-black text-emerald-900">
-                +{lastRoundResult.points.toLocaleString()} points
-              </span>
-              {streak >= 2 && (
-                <div className="flex items-center gap-1 px-2 py-0.5 bg-amber-100 border border-amber-800 text-amber-900 text-[10px] font-mono font-bold rounded-none">
-                  <Flame className="w-3 h-3 fill-amber-600 text-amber-600" />
-                  <span>{streak} in a row streak bonus</span>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="w-full bg-rose-50 border-2 border-rose-900 rounded-none p-5 shadow-sm flex flex-col items-center gap-2">
-              <div className="w-12 h-12 bg-rose-700 text-white flex items-center justify-center border border-rose-900 rounded-none">
-                <XCircle className="w-6 h-6" />
-              </div>
-              <h3 className="text-xl font-mono font-black text-rose-950 uppercase">Wrong Answer!</h3>
-              <p className="text-xs font-mono text-zinc-600">
-                The correct answer was Option {SHAPE_CONTROLS[room.lastRevealedAnswer?.correctIndex ?? 0]?.code}
-              </p>
-            </div>
-          )}
-
-          {room.lastRevealedAnswer?.aiCommentary && (
-            <div className="w-full bg-purple-50 border border-purple-900 p-2.5 text-xs font-mono text-purple-950 text-left rounded-none">
-              <span className="font-bold">EXPLANATION: </span>
-              <MathText text={room.lastRevealedAnswer.aiCommentary} />
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ============================================================ */}
-      {/* 4. LEADERBOARD VIEW */}
-      {/* ============================================================ */}
-      {room.status === 'LEADERBOARD' && (
-        <div className="flex-1 w-full flex flex-col items-center justify-center text-center gap-3 py-4">
-          <div className="p-2.5 bg-amber-100 border-2 border-zinc-900 text-amber-900 rounded-none">
-            <Trophy className="w-6 h-6" />
-          </div>
-          <div>
-            <h3 className="text-lg font-mono font-black text-zinc-950 uppercase">Scores Updated!</h3>
-            <p className="text-xs font-mono text-zinc-500">Look at the big screen for full leaderboard</p>
-          </div>
-          <div className="p-3.5 bg-white border-2 border-zinc-900 w-full rounded-none">
-            <span className="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-widest block">
-              Your Total Score
-            </span>
-            <span className="text-2xl font-mono font-black text-zinc-950 mt-0.5 block">
-              {score.toLocaleString()} points
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* ============================================================ */}
-      {/* 5. GAME OVER */}
+      {/* 3. GAME OVER & POST-QUIZ ANSWERS REVIEW                      */}
       {/* ============================================================ */}
       {room.status === 'GAME_OVER' && (
-        <Podium
-          players={Object.values(room.players)}
-          onPlayAgain={() => router.push('/')}
-        />
+        <div className="flex-1 w-full flex flex-col gap-6 py-2">
+          <Podium
+            players={Object.values(room.players)}
+            onPlayAgain={() => router.push('/')}
+          />
+
+          {/* Full Post-Quiz Solutions & Candidate Choices Breakdown */}
+          <QuizAnswersReview
+            quiz={room.quiz}
+            player={room.players?.[playerId]}
+          />
+        </div>
       )}
     </div>
   );
