@@ -89,9 +89,32 @@ export default function HostGamePage() {
       handleBroadcastEvent(event);
     });
 
-    if (existing) {
-      manager.syncWithSupabase(existing);
-    }
+    // Check cloud database for fresh candidate data
+    manager.lookupRoomStateAsync().then((dbRoom) => {
+      if (dbRoom) {
+        setRoom((prev) => {
+          if (!prev) return dbRoom;
+          const mergedPlayers = { ...(prev.players || {}) };
+          Object.keys(dbRoom.players || {}).forEach((pid) => {
+            const dbP = dbRoom.players[pid];
+            const localP = mergedPlayers[pid];
+            let calcScore = dbP.score || 0;
+            if (dbP.answers) {
+              const sum = Object.values(dbP.answers).reduce((acc, a) => acc + (a?.pointsEarned || 0), 0);
+              calcScore = Math.max(calcScore, sum);
+            }
+            mergedPlayers[pid] = {
+              ...(localP || dbP),
+              score: Math.max(localP?.score || 0, calcScore),
+              answers: { ...(localP?.answers || {}), ...(dbP.answers || {}) },
+            };
+          });
+          const merged = { ...prev, ...dbRoom, players: mergedPlayers };
+          roomRef.current = merged;
+          return merged;
+        });
+      }
+    });
 
     return () => {
       unsubscribe();
@@ -386,21 +409,47 @@ export default function HostGamePage() {
     }
   };
 
-  const finishGame = () => {
+  const finishGame = async () => {
     if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
     if (timerRef.current) clearInterval(timerRef.current);
-    
+
+    const manager = getRoomManager(roomCode);
+    sound.playVictory();
+
+    // 1. Fetch freshest state directly from DB before computing final results
+    let latestPlayers: Record<string, Player> = { ...(roomRef.current?.players || room?.players || {}) };
+    try {
+      const dbRoom = await manager.lookupRoomStateAsync();
+      if (dbRoom && dbRoom.players) {
+        Object.keys(dbRoom.players).forEach((pid) => {
+          const dbP = dbRoom.players[pid];
+          const localP = latestPlayers[pid];
+          if (!localP) {
+            latestPlayers[pid] = dbP;
+          } else {
+            latestPlayers[pid] = {
+              ...localP,
+              score: Math.max(localP.score || 0, dbP.score || 0),
+              streak: Math.max(localP.streak || 0, dbP.streak || 0),
+              answers: { ...(dbP.answers || {}), ...(localP.answers || {}) },
+              lastAnswer: localP.lastAnswer || dbP.lastAnswer,
+            };
+          }
+        });
+      }
+    } catch (e) {
+      console.warn('DB lookup in finishGame failed, using local state', e);
+    }
+
     const active = roomRef.current || room;
     if (!active || !active.quiz) return;
 
-    sound.playVictory();
-
-    // Ensure all players have their authoritative score calculated from answer records
+    // 2. Authoritative score computation from answer logs
     const finalPlayers: Record<string, Player> = {};
-    Object.values(active.players || {}).forEach((p) => {
+    Object.values(latestPlayers).forEach((p) => {
       let calcScore = p.score || 0;
       if (p.answers && Object.keys(p.answers).length > 0) {
-        const sum = Object.values(p.answers).reduce((acc, a) => acc + (a.pointsEarned || 0), 0);
+        const sum = Object.values(p.answers).reduce((acc, a) => acc + (a?.pointsEarned || 0), 0);
         calcScore = Math.max(calcScore, sum);
       }
       finalPlayers[p.id] = {
@@ -417,7 +466,6 @@ export default function HostGamePage() {
 
     roomRef.current = updatedRoom;
     setRoom(updatedRoom);
-    const manager = getRoomManager(roomCode);
     manager.saveRoom(updatedRoom);
 
     manager.broadcast({
@@ -779,7 +827,7 @@ export default function HostGamePage() {
       {/* 3. GAME OVER: PODIUM & FULL POST-QUIZ ANSWERS REVIEW         */}
       {/* ============================================================ */}
       {room.status === 'GAME_OVER' && (
-        <div className="w-full max-w-4xl flex-1 flex flex-col gap-8 py-4">
+        <div className="w-full max-w-5xl flex-1 flex flex-col items-center gap-6 py-4 pb-28">
           <Podium
             players={playersList}
             isHost={true}

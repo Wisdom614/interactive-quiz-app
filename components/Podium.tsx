@@ -14,7 +14,15 @@ interface PodiumProps {
 }
 
 export function Podium({ players = [], onPlayAgain, isHost }: PodiumProps) {
-  const safePlayers = Array.isArray(players) ? players : [];
+  const safePlayers = (Array.isArray(players) ? players : []).map((p) => {
+    let score = p?.score || 0;
+    if (p?.answers && Object.keys(p.answers).length > 0) {
+      const sum = Object.values(p.answers).reduce((acc, a) => acc + (a?.pointsEarned || 0), 0);
+      score = Math.max(score, sum);
+    }
+    return { ...p, score };
+  });
+
   const sorted = [...safePlayers].sort((a, b) => (b?.score || 0) - (a?.score || 0));
   const first = sorted[0];
   const second = sorted[1];
