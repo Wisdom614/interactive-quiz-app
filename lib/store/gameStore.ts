@@ -86,42 +86,44 @@ export class GameRoomManager {
         localStorage.setItem(ROOM_INDEX_KEY, JSON.stringify(index));
       }
 
-      // Asynchronously synchronize with Supabase DB if configured
-      const supabase = getSupabaseClient();
-      if (supabase && isSupabaseConfigured) {
-        Promise.resolve(
-          supabase
-            .from('quiz_rooms')
-            .upsert({
-              id: room.id,
-              room_code: room.roomCode,
-              host_id: room.hostId,
-              creator_id: room.creatorId || null,
-              creator_name: room.creatorName || null,
-              quiz: room.quiz,
-              status: room.status,
-              current_question_index: room.currentQuestionIndex,
-              question_started_at: room.questionStartedAt,
-              scheduled_start_at: room.scheduledStartAt,
-              is_public: room.isPublic,
-              max_candidates: room.maxCandidates,
-              settings: room.settings,
-              players: room.players,
-              last_revealed_answer: room.lastRevealedAnswer,
-              updated_at: new Date().toISOString(),
-            })
-        )
-          .then((result) => {
-            if (result && 'error' in result && result.error) {
-              console.warn('Supabase DB sync warning:', result.error);
-            }
-          })
-          .catch((err: unknown) => {
-            console.warn('Supabase DB sync catch:', err);
-          });
-      }
+      // Synchronize with Supabase database for cross-device access
+      this.syncWithSupabase(room);
     } catch (e) {
-      console.warn('Failed to save room', e);
+      console.warn('Failed to save room locally', e);
+    }
+  }
+
+  public async syncWithSupabase(room: GameRoom): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (!supabase || !isSupabaseConfigured) return;
+
+    try {
+      const { error } = await supabase
+        .from('quiz_rooms')
+        .upsert({
+          id: room.id,
+          room_code: room.roomCode,
+          host_id: room.hostId,
+          creator_id: room.creatorId || null,
+          creator_name: room.creatorName || null,
+          quiz: room.quiz,
+          status: room.status,
+          current_question_index: room.currentQuestionIndex,
+          question_started_at: room.questionStartedAt,
+          scheduled_start_at: room.scheduledStartAt,
+          is_public: room.isPublic,
+          max_candidates: room.maxCandidates,
+          settings: room.settings,
+          players: room.players,
+          last_revealed_answer: room.lastRevealedAnswer,
+          updated_at: new Date().toISOString(),
+        });
+
+      if (error) {
+        console.warn('Supabase DB sync warning:', error);
+      }
+    } catch (err) {
+      console.warn('Supabase DB sync catch:', err);
     }
   }
 
@@ -133,6 +135,67 @@ export class GameRoomManager {
     } catch (e) {
       return null;
     }
+  }
+
+  /**
+   * Asynchronously fetches the room state across devices.
+   * 1. Checks local cache first.
+   * 2. If missing on this device (e.g. mobile phone joining desktop host), queries Supabase DB.
+   * 3. Caches locally and returns the room.
+   */
+  public async fetchRoomAsync(): Promise<GameRoom | null> {
+    const local = this.getSavedRoom();
+    if (local) return local;
+
+    const supabase = getSupabaseClient();
+    if (supabase && isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase
+          .from('quiz_rooms')
+          .select('*')
+          .eq('room_code', this.roomCode)
+          .maybeSingle();
+
+        if (data && !error) {
+          const room: GameRoom = {
+            id: data.id,
+            roomCode: data.room_code,
+            hostId: data.host_id,
+            creatorId: data.creator_id,
+            creatorName: data.creator_name,
+            quiz: data.quiz,
+            status: data.status,
+            currentQuestionIndex: data.current_question_index || 0,
+            questionStartedAt: data.question_started_at,
+            scheduledStartAt: data.scheduled_start_at,
+            isPublic: data.is_public !== false,
+            maxCandidates: data.max_candidates,
+            settings: data.settings || {
+              timePerQuestion: 15,
+              speedBonus: true,
+              streakBonus: true,
+              showExplanations: true,
+              aiCommentaryEnabled: true,
+            },
+            players: data.players || {},
+            lastRevealedAnswer: data.last_revealed_answer,
+          };
+
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem(`${ROOM_STORAGE_KEY}${this.roomCode}`, JSON.stringify(room));
+            } catch (e) {
+              // ignore
+            }
+          }
+          return room;
+        }
+      } catch (err) {
+        console.warn('Failed to fetch room from Supabase:', err);
+      }
+    }
+
+    return null;
   }
 
   public cleanup() {
@@ -249,8 +312,11 @@ export type RoomLookupResult =
   | { status: 'IN_PROGRESS'; currentQuestion: number; totalQuestions: number; room: GameRoom }
   | { status: 'GAME_OVER'; room: GameRoom };
 
-// Accurate PIN State Tracker
-export function lookupRoomState(roomCode: string): RoomLookupResult {
+/**
+ * Cross-Device Asynchronous Room State Tracker.
+ * Checks local cache first, then Supabase cloud database if user is on a separate device.
+ */
+export async function lookupRoomStateAsync(roomCode: string): Promise<RoomLookupResult> {
   const code = (roomCode || '').trim().toUpperCase();
   if (!code || code.length < 4) {
     return {
@@ -259,7 +325,13 @@ export function lookupRoomState(roomCode: string): RoomLookupResult {
     };
   }
 
-  const room = getRoomManager(code).getSavedRoom();
+  const manager = getRoomManager(code);
+  let room = manager.getSavedRoom();
+
+  if (!room) {
+    room = await manager.fetchRoomAsync();
+  }
+
   if (!room) {
     return {
       status: 'NOT_FOUND',
@@ -296,4 +368,43 @@ export function lookupRoomState(roomCode: string): RoomLookupResult {
     status: 'LOBBY',
     room,
   };
+}
+
+// Synchronous wrapper
+export function lookupRoomState(roomCode: string): RoomLookupResult {
+  const code = (roomCode || '').trim().toUpperCase();
+  if (!code || code.length < 4) {
+    return {
+      status: 'NOT_FOUND',
+      message: 'Please enter a valid 6-character PIN code.',
+    };
+  }
+
+  const room = getRoomManager(code).getSavedRoom();
+  if (!room) {
+    return {
+      status: 'NOT_FOUND',
+      message: `No active quiz found with PIN #${code}. Please check the screen or ask your host.`,
+    };
+  }
+
+  if (room.status === 'GAME_OVER') {
+    return { status: 'GAME_OVER', room };
+  }
+
+  const currentCount = Object.keys(room.players || {}).length;
+  if (room.maxCandidates && currentCount >= room.maxCandidates && room.status === 'LOBBY') {
+    return { status: 'ROOM_FULL', maxCandidates: room.maxCandidates, room };
+  }
+
+  if (room.status === 'QUESTION' || room.status === 'ANSWER_REVEAL' || room.status === 'LEADERBOARD') {
+    return {
+      status: 'IN_PROGRESS',
+      currentQuestion: (room.currentQuestionIndex ?? 0) + 1,
+      totalQuestions: room.quiz?.questions?.length || 1,
+      room,
+    };
+  }
+
+  return { status: 'LOBBY', room };
 }

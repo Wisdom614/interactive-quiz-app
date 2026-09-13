@@ -81,6 +81,10 @@ export default function HostGamePage() {
       handleBroadcastEvent(event);
     });
 
+    if (existing) {
+      manager.syncWithSupabase(existing);
+    }
+
     return () => {
       unsubscribe();
       if (timerRef.current) clearInterval(timerRef.current);
@@ -110,13 +114,27 @@ export default function HostGamePage() {
   }, [room?.status, room?.scheduledStartAt, roomCode]);
 
   const handleBroadcastEvent = (event: BroadcastEvent) => {
-    if (event.type === 'PLAYER_JOINED') {
+    const manager = getRoomManager(roomCode);
+
+    if (event.type === 'SYNC_REQUEST') {
+      const current = room || manager.getSavedRoom();
+      if (current) {
+        manager.broadcast({
+          type: 'ROOM_SYNC',
+          room: current,
+        });
+      }
+    } else if (event.type === 'PLAYER_JOINED') {
       sound.playPop();
       setRoom((prev) => {
         if (!prev) return null;
         const updatedPlayers = { ...prev.players, [event.player.id]: event.player };
         const updatedRoom = { ...prev, players: updatedPlayers };
-        getRoomManager(roomCode).saveRoom(updatedRoom);
+        manager.saveRoom(updatedRoom);
+        manager.broadcast({
+          type: 'ROOM_SYNC',
+          room: updatedRoom,
+        });
         return updatedRoom;
       });
     } else if (event.type === 'PLAYER_LEFT') {
@@ -125,7 +143,7 @@ export default function HostGamePage() {
         const updated = { ...prev.players };
         delete updated[event.playerId];
         const updatedRoom = { ...prev, players: updated };
-        getRoomManager(roomCode).saveRoom(updatedRoom);
+        manager.saveRoom(updatedRoom);
         return updatedRoom;
       });
     } else if (event.type === 'QUIZ_UPDATED') {
@@ -426,7 +444,7 @@ export default function HostGamePage() {
             
             <div className="md:col-span-8 flex flex-col items-center md:items-start text-center md:text-left gap-3">
               <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-500">
-                Join on your phone or computer at quizpulse-ai.app
+                Join on your phone at {typeof window !== 'undefined' ? window.location.host : 'kinetic-ai.app'}
               </span>
 
               <div className="flex flex-wrap items-center gap-3">

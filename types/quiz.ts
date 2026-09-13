@@ -103,4 +103,6 @@ export type BroadcastEvent =
   | { type: 'PLAYER_JOINED'; player: Player }
   | { type: 'PLAYER_LEFT'; playerId: string }
   | { type: 'AUTO_START_SYNC'; scheduledStartAt: number | null }
-  | { type: 'QUIZ_UPDATED'; quiz: Quiz };
+  | { type: 'QUIZ_UPDATED'; quiz: Quiz }
+  | { type: 'ROOM_SYNC'; room: GameRoom }
+  | { type: 'SYNC_REQUEST'; playerId?: string };

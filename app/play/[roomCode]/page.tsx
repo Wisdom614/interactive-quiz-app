@@ -4,14 +4,16 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import {
   Zap, Flame, Trophy, CheckCircle2, XCircle, Timer, AlertCircle,
-  Triangle, Diamond, Circle, Square, Clock, Users, Share2, Copy, Check
+  Triangle, Diamond, Circle, Square, Clock, Users, Share2, Copy, Check,
+  RefreshCw, Sparkles, UserPlus
 } from 'lucide-react';
 import { GameRoom, GameState, Player, BroadcastEvent } from '@/types/quiz';
 import { getRoomManager } from '@/lib/store/gameStore';
 import { sound } from '@/lib/audio/soundEngine';
 import { ReactionPicker } from '@/components/ReactionPicker';
 import { Podium } from '@/components/Podium';
-import { VectorAvatar } from '@/components/VectorAvatar';
+import { VectorAvatar, VECTOR_AVATARS } from '@/components/VectorAvatar';
+import { AvatarSelector } from '@/components/AvatarSelector';
 import { MathText } from '@/components/MathText';
 
 const SHAPE_CONTROLS = [
@@ -55,11 +57,59 @@ function PlayGameContent() {
   const router = useRouter();
 
   const roomCode = (params.roomCode as string || '').toUpperCase();
-  const nicknameParam = searchParams.get('nickname') || 'Player';
-  const avatarParam = searchParams.get('avatar') || 'v_zap';
-  const playerId = searchParams.get('pid') || 'p_' + Math.random().toString(36).substring(2, 9);
+  const nicknameParam = searchParams.get('nickname');
+  const avatarParam = searchParams.get('avatar');
+  const pidParam = searchParams.get('pid');
 
+  // Player identity
+  const [playerId, setPlayerId] = useState<string>(() => {
+    if (pidParam) return pidParam;
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('quizpulse_player');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed.id) return parsed.id;
+        } catch {}
+      }
+    }
+    return 'p_' + Math.random().toString(36).substring(2, 9);
+  });
+
+  const [currentNickname, setCurrentNickname] = useState<string>(() => {
+    if (nicknameParam) return nicknameParam;
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('quizpulse_player');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed.nickname) return parsed.nickname;
+        } catch {}
+      }
+    }
+    return '';
+  });
+
+  const [currentAvatar, setCurrentAvatar] = useState<string>(() => {
+    if (avatarParam) return avatarParam;
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('quizpulse_player');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed.avatar) return parsed.avatar;
+        } catch {}
+      }
+    }
+    return VECTOR_AVATARS[0].id;
+  });
+
+  const [hasJoinedLobby, setHasJoinedLobby] = useState<boolean>(Boolean(nicknameParam));
+
+  // Game state
   const [room, setRoom] = useState<GameRoom | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isNotFound, setIsNotFound] = useState(false);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [hasLockedIn, setHasLockedIn] = useState(false);
   const [responseTimeMs, setResponseTimeMs] = useState(0);
@@ -68,27 +118,77 @@ function PlayGameContent() {
   const [streak, setStreak] = useState(0);
   const [lastRoundResult, setLastRoundResult] = useState<{ isCorrect: boolean; points: number } | null>(null);
   const [autoStartRemaining, setAutoStartRemaining] = useState<number | null>(null);
-  const [isNotFound, setIsNotFound] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState(false);
   const [incomingReactions, setIncomingReactions] = useState<{ id: string; emoji: string; nickname?: string }[]>([]);
 
+  // 1. Asynchronous Cross-Device Room Initializer
   useEffect(() => {
     if (!roomCode) return;
+    let isMounted = true;
+    setIsLoading(true);
+
     const manager = getRoomManager(roomCode);
-    const existingRoom = manager.getSavedRoom();
 
-    if (existingRoom) {
-      setRoom(existingRoom);
-      setIsNotFound(false);
-    } else {
-      setIsNotFound(true);
-      return;
-    }
+    const initAndSync = async () => {
+      // Step A: check local memory
+      let activeRoom = manager.getSavedRoom();
 
+      // Step B: if not in local memory, fetch from Supabase Cloud DB
+      if (!activeRoom) {
+        activeRoom = await manager.fetchRoomAsync();
+      }
+
+      if (isMounted) {
+        if (activeRoom) {
+          setRoom(activeRoom);
+          setIsNotFound(false);
+          setIsLoading(false);
+        } else {
+          // Step C: Send real-time SYNC_REQUEST over Supabase Broadcast channel
+          manager.broadcast({
+            type: 'SYNC_REQUEST',
+            playerId,
+          });
+
+          // Allow 2.5s grace period for Realtime broadcast response
+          setTimeout(() => {
+            if (isMounted) {
+              const check = manager.getSavedRoom();
+              if (check) {
+                setRoom(check);
+                setIsNotFound(false);
+              } else {
+                setIsNotFound(true);
+              }
+              setIsLoading(false);
+            }
+          }, 2500);
+        }
+      }
+    };
+
+    initAndSync();
+
+    // Subscribe to live broadcast events
+    const unsubscribe = manager.subscribe((event: BroadcastEvent) => {
+      handleEvent(event);
+    });
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, [roomCode, playerId]);
+
+  // Broadcast join once player identity is confirmed
+  useEffect(() => {
+    if (!roomCode || !hasJoinedLobby || !currentNickname.trim()) return;
+
+    const manager = getRoomManager(roomCode);
     const selfPlayer: Player = {
       id: playerId,
-      nickname: nicknameParam,
-      avatar: avatarParam,
+      nickname: currentNickname,
+      avatar: currentAvatar,
       score: 0,
       streak: 0,
     };
@@ -97,15 +197,7 @@ function PlayGameContent() {
       type: 'PLAYER_JOINED',
       player: selfPlayer,
     });
-
-    const unsubscribe = manager.subscribe((event: BroadcastEvent) => {
-      handleEvent(event);
-    });
-
-    return () => {
-      unsubscribe();
-    };
-  }, [roomCode, playerId, nicknameParam, avatarParam]);
+  }, [roomCode, hasJoinedLobby, currentNickname, currentAvatar, playerId]);
 
   // Scheduled Auto-Start countdown ticker
   useEffect(() => {
@@ -145,7 +237,11 @@ function PlayGameContent() {
   }, [hasLockedIn, room, questionStartTime]);
 
   const handleEvent = (event: BroadcastEvent) => {
-    if (event.type === 'PLAYER_JOINED') {
+    if (event.type === 'ROOM_SYNC') {
+      setRoom(event.room);
+      setIsNotFound(false);
+      setIsLoading(false);
+    } else if (event.type === 'PLAYER_JOINED') {
       sound.playPop();
       setRoom((prev) => {
         if (!prev) return null;
@@ -216,25 +312,12 @@ function PlayGameContent() {
     }
   };
 
-  const handleCopyInvite = () => {
-    sound.playClick();
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://kinetic-ai.app';
-    const text = `Join my live quiz game on Kinetic AI! Topic: "${room?.quiz?.title || 'Trivia'}" | PIN: #${roomCode} | Play at: ${origin}/play/${roomCode}`;
-    navigator.clipboard.writeText(text);
-    setCopiedInvite(true);
-    setTimeout(() => setCopiedInvite(false), 2500);
-  };
-
-  const handleSelectOption = (index: number) => {
+  const handleSelectOption = (idx: number) => {
     if (hasLockedIn || !room || room.status !== 'QUESTION') return;
 
     sound.playSelect();
-    if (typeof window !== 'undefined' && navigator.vibrate) {
-      navigator.vibrate(40);
-    }
-
     const elapsed = Date.now() - questionStartTime;
-    setSelectedOption(index);
+    setSelectedOption(idx);
     setHasLockedIn(true);
     setResponseTimeMs(elapsed);
 
@@ -243,21 +326,58 @@ function PlayGameContent() {
       type: 'ANSWER_SUBMITTED',
       playerId,
       questionIndex: room.currentQuestionIndex,
-      selectedIndex: index,
+      selectedIndex: idx,
       responseTimeMs: elapsed,
     });
   };
 
-  const handleSendReaction = (reactionId: string) => {
+  const handleSendReaction = (emoji: string) => {
     const manager = getRoomManager(roomCode);
     manager.broadcast({
       type: 'REACTION',
-      emoji: reactionId,
-      nickname: nicknameParam,
+      emoji,
+      nickname: currentNickname || 'Player',
       id: Math.random().toString(),
     });
   };
 
+  const handleConfirmJoin = (e: React.FormEvent) => {
+    e.preventDefault();
+    const nick = currentNickname.trim();
+    if (!nick) return;
+
+    sound.playClick();
+    localStorage.setItem('quizpulse_player', JSON.stringify({
+      id: playerId,
+      nickname: nick,
+      avatar: currentAvatar,
+    }));
+    setHasJoinedLobby(true);
+  };
+
+  const handleCopyInvite = () => {
+    sound.playClick();
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://kinetic-ai.app';
+    const text = `Join my live Kinetic AI quiz game! Topic: "${room?.quiz?.title || 'Trivia'}" | PIN: #${roomCode} | Play at: ${origin}/play/${roomCode}`;
+    navigator.clipboard.writeText(text);
+    setCopiedInvite(true);
+    setTimeout(() => setCopiedInvite(false), 2500);
+  };
+
+  // 1. Loading Screen
+  if (isLoading) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center max-w-md mx-auto w-full">
+        <RefreshCw className="w-8 h-8 text-zinc-950 animate-spin mb-3" />
+        <h2 className="text-sm font-mono font-bold text-zinc-950 uppercase tracking-tight">
+          Connecting to Arena #{roomCode}...
+        </h2>
+        <p className="text-xs font-mono text-zinc-500 mt-1">Syncing real-time room data with host</p>
+      </div>
+    );
+  }
+
+  // 2. Not Found Screen
   if (isNotFound || !room) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 text-center max-w-md mx-auto w-full">
@@ -271,7 +391,7 @@ function PlayGameContent() {
           Game #{roomCode} Doesn&apos;t Exist
         </h2>
         <p className="text-xs font-mono text-zinc-600 mb-6 leading-relaxed">
-          We couldn&apos;t find an active quiz room with PIN <strong>#{roomCode}</strong>. The game may have expired, or the PIN was mistyped.
+          We couldn&apos;t find an active quiz room with PIN <strong>#{roomCode}</strong>. Make sure the host has started the lobby.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-2 w-full">
@@ -292,6 +412,60 @@ function PlayGameContent() {
     );
   }
 
+  // 3. QR Code Direct Scanner Join Modal (If no nickname yet)
+  if (!hasJoinedLobby) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-4 max-w-md mx-auto w-full">
+        <div className="w-full bg-white border-2 border-zinc-900 p-6 shadow-sm rounded-none flex flex-col gap-4">
+          <div className="flex items-center justify-between pb-3 border-b-2 border-zinc-900">
+            <div>
+              <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-blue-100 border border-blue-900 text-blue-950 uppercase">
+                PIN #{roomCode}
+              </span>
+              <h2 className="text-base font-mono font-black text-zinc-950 uppercase tracking-tight mt-1">
+                Join {room.quiz.title}
+              </h2>
+            </div>
+            <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 border border-emerald-800 uppercase">
+              LIVE
+            </span>
+          </div>
+
+          <form onSubmit={handleConfirmJoin} className="flex flex-col gap-4">
+            <div>
+              <label className="text-[11px] font-mono font-bold text-zinc-900 uppercase tracking-wider block mb-1">
+                Your Nickname
+              </label>
+              <input
+                type="text"
+                required
+                maxLength={16}
+                placeholder="e.g. Maya, Jordan, Alex"
+                value={currentNickname}
+                onChange={(e) => setCurrentNickname(e.target.value)}
+                className="w-full bg-zinc-50 border-2 border-zinc-900 px-3 py-2 text-zinc-950 font-mono text-sm font-bold placeholder-zinc-400 outline-none rounded-none focus:bg-white"
+              />
+            </div>
+
+            <AvatarSelector
+              selectedAvatarId={currentAvatar}
+              onSelect={setCurrentAvatar}
+            />
+
+            <button
+              type="submit"
+              disabled={!currentNickname.trim()}
+              className="w-full flex items-center justify-center gap-2 py-3 bg-zinc-950 hover:bg-blue-600 text-white font-mono font-bold text-xs uppercase border-2 border-zinc-900 rounded-none active:translate-y-0.5 transition-all disabled:opacity-40"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>Join Game Arena</span>
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   const currentQ = room.quiz?.questions?.[room.currentQuestionIndex];
 
   return (
@@ -306,9 +480,9 @@ function PlayGameContent() {
       {/* Top Header */}
       <div className="w-full flex items-center justify-between bg-white border-2 border-zinc-900 px-3.5 py-2 rounded-none shadow-sm mb-2">
         <div className="flex items-center gap-2">
-          <VectorAvatar id={avatarParam} size="sm" />
+          <VectorAvatar id={currentAvatar} size="sm" />
           <div className="flex flex-col">
-            <span className="font-mono font-bold text-zinc-950 text-xs tracking-tight">{nicknameParam}</span>
+            <span className="font-mono font-bold text-zinc-950 text-xs tracking-tight">{currentNickname}</span>
             {streak >= 2 && (
               <span className="flex items-center gap-0.5 text-[9px] font-mono font-bold text-amber-800">
                 <Flame className="w-2.5 h-2.5 fill-amber-600 text-amber-600" />
@@ -340,7 +514,7 @@ function PlayGameContent() {
       {room.status === 'LOBBY' && (
         <div className="flex-1 flex flex-col items-center justify-between text-center gap-3 py-2 w-full">
           <div className="flex flex-col items-center gap-1.5">
-            <VectorAvatar id={avatarParam} size="lg" className="border-2 border-zinc-900" />
+            <VectorAvatar id={currentAvatar} size="lg" className="border-2 border-zinc-900" />
             <div>
               <h2 className="text-base sm:text-lg font-mono font-black text-zinc-950 uppercase tracking-tight">You&apos;re In the Game!</h2>
               <p className="text-[11px] font-mono text-zinc-600">Look at the big screen when round begins.</p>
@@ -549,7 +723,7 @@ function PlayGameContent() {
 
 export default function PlayGamePage() {
   return (
-    <Suspense fallback={<div className="p-12 text-center text-zinc-500 font-mono text-xs">Joining game...</div>}>
+    <Suspense fallback={<div className="p-12 text-center text-zinc-500 font-mono text-xs">Joining game arena...</div>}>
       <PlayGameContent />
     </Suspense>
   );

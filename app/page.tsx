@@ -10,7 +10,7 @@ import {
 import { AvatarSelector } from '@/components/AvatarSelector';
 import { VECTOR_AVATARS } from '@/components/VectorAvatar';
 import { sound } from '@/lib/audio/soundEngine';
-import { lookupRoomState } from '@/lib/store/gameStore';
+import { lookupRoomStateAsync } from '@/lib/store/gameStore';
 
 export default function HomePage() {
   const router = useRouter();
@@ -18,8 +18,9 @@ export default function HomePage() {
   const [nickname, setNickname] = useState('');
   const [selectedAvatarId, setSelectedAvatarId] = useState(VECTOR_AVATARS[0].id);
   const [errorMsg, setErrorMsg] = useState('');
+  const [isJoining, setIsJoining] = useState(false);
 
-  const handleJoinGame = (e: React.FormEvent) => {
+  const handleJoinGame = async (e: React.FormEvent) => {
     e.preventDefault();
     sound.playClick();
     
@@ -37,34 +38,45 @@ export default function HomePage() {
       return;
     }
 
-    const stateCheck = lookupRoomState(cleanPin);
-    if (stateCheck.status === 'NOT_FOUND') {
-      setErrorMsg(`Game PIN #${cleanPin} not found. Please double-check the code on the host screen.`);
-      sound.playWrong();
-      return;
-    }
-    if (stateCheck.status === 'ROOM_FULL') {
-      setErrorMsg(`Game #${cleanPin} has reached its maximum candidate limit (${stateCheck.maxCandidates} players).`);
-      sound.playWrong();
-      return;
-    }
-    if (stateCheck.status === 'GAME_OVER') {
-      setErrorMsg(`Quiz #${cleanPin} has already concluded and is no longer accepting answers.`);
-      sound.playWrong();
-      return;
-    }
-
+    setIsJoining(true);
     setErrorMsg('');
-    sound.playSelect();
-    
-    const playerId = 'p_' + Math.random().toString(36).substring(2, 9);
-    localStorage.setItem('quizpulse_player', JSON.stringify({
-      id: playerId,
-      nickname: cleanNick,
-      avatar: selectedAvatarId,
-    }));
 
-    router.push(`/play/${cleanPin}?nickname=${encodeURIComponent(cleanNick)}&avatar=${encodeURIComponent(selectedAvatarId)}&pid=${playerId}`);
+    try {
+      const stateCheck = await lookupRoomStateAsync(cleanPin);
+      if (stateCheck.status === 'NOT_FOUND') {
+        setErrorMsg(`Game PIN #${cleanPin} not found. Please double-check the code on the host screen.`);
+        sound.playWrong();
+        setIsJoining(false);
+        return;
+      }
+      if (stateCheck.status === 'ROOM_FULL') {
+        setErrorMsg(`Game #${cleanPin} has reached its maximum candidate limit (${stateCheck.maxCandidates} players).`);
+        sound.playWrong();
+        setIsJoining(false);
+        return;
+      }
+      if (stateCheck.status === 'GAME_OVER') {
+        setErrorMsg(`Quiz #${cleanPin} has already concluded and is no longer accepting answers.`);
+        sound.playWrong();
+        setIsJoining(false);
+        return;
+      }
+
+      sound.playSelect();
+      
+      const playerId = 'p_' + Math.random().toString(36).substring(2, 9);
+      localStorage.setItem('quizpulse_player', JSON.stringify({
+        id: playerId,
+        nickname: cleanNick,
+        avatar: selectedAvatarId,
+      }));
+
+      router.push(`/play/${cleanPin}?nickname=${encodeURIComponent(cleanNick)}&avatar=${encodeURIComponent(selectedAvatarId)}&pid=${playerId}`);
+    } catch {
+      setErrorMsg('Connection error. Please try again.');
+    } finally {
+      setIsJoining(false);
+    }
   };
 
   const presetTopics = [
