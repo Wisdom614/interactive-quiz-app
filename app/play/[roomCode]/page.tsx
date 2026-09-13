@@ -119,6 +119,7 @@ function PlayGameContent() {
   const [streak, setStreak] = useState(0);
   const [lastRoundResult, setLastRoundResult] = useState<{ isCorrect: boolean; points: number } | null>(null);
   const [autoStartRemaining, setAutoStartRemaining] = useState<number | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number>(15);
   const [copiedInvite, setCopiedInvite] = useState(false);
   const [incomingReactions, setIncomingReactions] = useState<{ id: string; emoji: string; nickname?: string }[]>([]);
 
@@ -216,6 +217,23 @@ function PlayGameContent() {
     return () => clearInterval(presenceInterval);
   }, [roomCode, hasJoinedLobby, currentNickname, currentAvatar, playerId, room?.status]);
 
+  // Live Synced Countdown Timer
+  useEffect(() => {
+    if (!room || room.status !== 'QUESTION') return;
+    const currentQ = room.quiz?.questions?.[room.currentQuestionIndex];
+    const duration = currentQ?.timeLimit || 15;
+    const startedAt = room.questionStartedAt || questionStartTime;
+
+    const tick = () => {
+      const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
+      const rem = Math.max(0, duration - elapsedSec);
+      setTimeLeft(rem);
+    };
+
+    tick();
+    const interval = setInterval(tick, 500);
+    return () => clearInterval(interval);
+  }, [room?.status, room?.currentQuestionIndex, room?.questionStartedAt, questionStartTime]);
 
   // Scheduled Auto-Start countdown ticker
   useEffect(() => {
@@ -249,7 +267,7 @@ function PlayGameContent() {
     return () => clearInterval(interval);
   }, [room?.status, room?.scheduledStartAt, roomCode, playerId]);
 
-  // Active Game State Poller (Ensures mobile clients never miss round/question starts or answer reveals)
+  // Active Game State Poller with deep merge
   useEffect(() => {
     if (!roomCode || !hasJoinedLobby) return;
 
@@ -260,30 +278,44 @@ function PlayGameContent() {
       if (dbRoom) {
         setRoom((prev) => {
           if (!prev) return dbRoom;
-          // If status or question index advanced on host
+          // Merge players non-destructively
+          const localPlayer = prev.players?.[playerId];
+          const dbPlayer = dbRoom.players?.[playerId];
+          const mergedSelf: Player = {
+            id: playerId,
+            nickname: currentNickname,
+            avatar: currentAvatar,
+            score: Math.max(localPlayer?.score || 0, dbPlayer?.score || 0),
+            streak: Math.max(localPlayer?.streak || 0, dbPlayer?.streak || 0),
+            answers: { ...(dbPlayer?.answers || {}), ...(localPlayer?.answers || {}) },
+            lastAnswer: localPlayer?.lastAnswer || dbPlayer?.lastAnswer,
+          };
+
+          const mergedRoom: GameRoom = {
+            ...dbRoom,
+            players: {
+              ...dbRoom.players,
+              [playerId]: mergedSelf,
+            },
+          };
+
           if (
-            dbRoom.status !== prev.status ||
-            dbRoom.currentQuestionIndex !== prev.currentQuestionIndex ||
-            dbRoom.lastRevealedAnswer?.questionIndex !== prev.lastRevealedAnswer?.questionIndex
+            (dbRoom.status === 'QUESTION' && prev.status !== 'QUESTION') ||
+            dbRoom.currentQuestionIndex !== prev.currentQuestionIndex
           ) {
-            if (
-              (dbRoom.status === 'QUESTION' && prev.status !== 'QUESTION') ||
-              dbRoom.currentQuestionIndex !== prev.currentQuestionIndex
-            ) {
-              setSelectedOption(null);
-              setHasLockedIn(false);
-              setQuestionStartTime(dbRoom.questionStartedAt || Date.now());
-            }
-            return dbRoom;
+            setSelectedOption(null);
+            setHasLockedIn(false);
+            setQuestionStartTime(dbRoom.questionStartedAt || Date.now());
           }
-          return prev;
+
+          return mergedRoom;
         });
       }
     };
 
     const interval = setInterval(syncGameState, 1500);
     return () => clearInterval(interval);
-  }, [roomCode, hasJoinedLobby]);
+  }, [roomCode, hasJoinedLobby, currentNickname, currentAvatar, playerId]);
 
   // Keyboard shortcut listener (1-4, A-D)
   useEffect(() => {
@@ -308,6 +340,18 @@ function PlayGameContent() {
     if (event.type === 'ROOM_SYNC') {
       setRoom((prev) => {
         if (!prev) return event.room;
+        const localSelf = prev.players?.[playerId];
+        const serverSelf = event.room.players?.[playerId];
+        const mergedSelf: Player = {
+          id: playerId,
+          nickname: currentNickname,
+          avatar: currentAvatar,
+          score: Math.max(localSelf?.score || 0, serverSelf?.score || 0),
+          streak: Math.max(localSelf?.streak || 0, serverSelf?.streak || 0),
+          answers: { ...(serverSelf?.answers || {}), ...(localSelf?.answers || {}) },
+          lastAnswer: localSelf?.lastAnswer || serverSelf?.lastAnswer,
+        };
+
         if (
           (event.room.status === 'QUESTION' && prev.status !== 'QUESTION') ||
           event.room.currentQuestionIndex !== prev.currentQuestionIndex
@@ -316,7 +360,14 @@ function PlayGameContent() {
           setHasLockedIn(false);
           setQuestionStartTime(event.room.questionStartedAt || Date.now());
         }
-        return event.room;
+
+        return {
+          ...event.room,
+          players: {
+            ...event.room.players,
+            [playerId]: mergedSelf,
+          },
+        };
       });
       setIsNotFound(false);
       setIsLoading(false);
@@ -457,6 +508,7 @@ function PlayGameContent() {
     });
 
     const manager = getRoomManager(roomCode);
+    // 1. Dual-Channel: Fast Realtime broadcast to host
     manager.broadcast({
       type: 'ANSWER_SUBMITTED',
       playerId,
@@ -464,6 +516,14 @@ function PlayGameContent() {
       selectedIndex: idx,
       responseTimeMs: elapsed,
     });
+
+    // 2. Dual-Channel: Guaranteed REST API / DB persistence with score calculation
+    manager.submitAnswerDirectly(
+      playerId,
+      room.currentQuestionIndex,
+      idx,
+      elapsed
+    );
   };
 
   const handleSendReaction = (emoji: string) => {
@@ -753,11 +813,26 @@ function PlayGameContent() {
       {room.status === 'QUESTION' && (
         <div className="flex-1 w-full flex flex-col justify-between py-2 gap-3">
           
-          <div className="text-center bg-zinc-100 p-2.5 border-2 border-zinc-900 rounded-none">
-            <span className="text-[10px] font-mono font-bold text-zinc-600 uppercase tracking-widest">
-              Question {room.currentQuestionIndex + 1} of {totalQuestions}
-            </span>
-            <p className="text-xs font-mono font-bold text-zinc-950 mt-0.5 line-clamp-3">
+          <div className="flex flex-col gap-1.5 bg-zinc-100 p-2.5 border-2 border-zinc-900 rounded-none">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono font-bold text-zinc-600 uppercase tracking-widest">
+                Question {room.currentQuestionIndex + 1} of {totalQuestions}
+              </span>
+              <div className="flex items-center gap-1 font-mono text-xs font-black text-zinc-950 bg-white px-2 py-0.5 border border-zinc-900">
+                <Timer className="w-3 h-3 text-zinc-950" />
+                <span>{timeLeft}s</span>
+              </div>
+            </div>
+
+            {/* Countdown Progress Bar */}
+            <div className="w-full bg-zinc-200 h-1.5 border border-zinc-900 rounded-none overflow-hidden flex">
+              <div
+                className="h-full bg-blue-600 transition-all duration-500"
+                style={{ width: `${(timeLeft / (currentQ?.timeLimit || 15)) * 100}%` }}
+              />
+            </div>
+
+            <p className="text-xs font-mono font-bold text-zinc-950 mt-1 line-clamp-3">
               {currentQ ? <MathText text={currentQ.question} /> : 'Tap your answer choice below'}
             </p>
           </div>

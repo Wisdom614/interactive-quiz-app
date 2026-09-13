@@ -158,6 +158,37 @@ export class GameRoomManager {
     if (!supabase || !isSupabaseConfigured) return;
 
     try {
+      // Non-destructive merge: if database has players with recent answers or new joins, merge them with local
+      let mergedPlayers = { ...(room.players || {}) };
+      try {
+        const { data: latestDb } = await supabase
+          .from('quiz_rooms')
+          .select('players')
+          .eq('room_code', this.roomCode)
+          .maybeSingle();
+
+        if (latestDb && latestDb.players) {
+          const dbPlayers = latestDb.players;
+          Object.keys(dbPlayers).forEach((pid) => {
+            const dbP = dbPlayers[pid];
+            const localP = mergedPlayers[pid];
+            if (!localP) {
+              mergedPlayers[pid] = dbP;
+            } else {
+              mergedPlayers[pid] = {
+                ...localP,
+                score: Math.max(localP.score || 0, dbP.score || 0),
+                streak: Math.max(localP.streak || 0, dbP.streak || 0),
+                answers: { ...(dbP.answers || {}), ...(localP.answers || {}) },
+                lastAnswer: localP.lastAnswer || dbP.lastAnswer,
+              };
+            }
+          });
+        }
+      } catch {
+        // Continue with local players if select fails
+      }
+
       const { error } = await supabase
         .from('quiz_rooms')
         .upsert({
@@ -174,7 +205,7 @@ export class GameRoomManager {
           is_public: room.isPublic,
           max_candidates: room.maxCandidates,
           settings: room.settings,
-          players: room.players,
+          players: mergedPlayers,
           last_revealed_answer: room.lastRevealedAnswer,
           updated_at: new Date().toISOString(),
         });
@@ -191,6 +222,17 @@ export class GameRoomManager {
    * Adds or updates a player directly in the cloud database for instant host discovery
    */
   public async addPlayerDirectly(player: Player): Promise<void> {
+    try {
+      const res = await fetch(`/api/rooms/${this.roomCode}/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ player }),
+      });
+      if (res.ok) return;
+    } catch {
+      // Fall back to direct Supabase client write
+    }
+
     const supabase = getSupabaseClient();
     if (!supabase || !isSupabaseConfigured) return;
 
@@ -202,7 +244,13 @@ export class GameRoomManager {
         .maybeSingle();
 
       const existingPlayers = data?.players || {};
-      existingPlayers[player.id] = player;
+      const existing = existingPlayers[player.id];
+      existingPlayers[player.id] = {
+        ...player,
+        score: existing?.score ?? player.score ?? 0,
+        streak: existing?.streak ?? player.streak ?? 0,
+        answers: { ...(existing?.answers || {}), ...(player.answers || {}) },
+      };
 
       await supabase
         .from('quiz_rooms')
@@ -213,6 +261,93 @@ export class GameRoomManager {
         .eq('room_code', this.roomCode);
     } catch (err) {
       console.warn('Direct player addition error:', err);
+    }
+  }
+
+  /**
+   * Guaranteed submission of an answer to cloud database via REST API with Supabase fallback
+   */
+  public async submitAnswerDirectly(
+    playerId: string,
+    questionIndex: number,
+    selectedIndex: number,
+    responseTimeMs: number
+  ): Promise<void> {
+    try {
+      const res = await fetch(`/api/rooms/${this.roomCode}/answer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          playerId,
+          questionIndex,
+          selectedIndex,
+          responseTimeMs,
+        }),
+      });
+      if (res.ok) return;
+    } catch {
+      // Fallback
+    }
+
+    const supabase = getSupabaseClient();
+    if (!supabase || !isSupabaseConfigured) return;
+
+    try {
+      const { data: roomData } = await supabase
+        .from('quiz_rooms')
+        .select('quiz, players')
+        .eq('room_code', this.roomCode)
+        .maybeSingle();
+
+      if (roomData) {
+        const currentQ = roomData.quiz?.questions?.[questionIndex];
+        const isCorrect = currentQ && currentQ.correctIndex === selectedIndex;
+        const duration = currentQ?.timeLimit || 15;
+        const timeFraction = Math.max(0, 1 - (responseTimeMs / (duration * 1000)));
+        const speedBonus = Math.round(timeFraction * 500);
+
+        const existingPlayers = roomData.players || {};
+        const p = existingPlayers[playerId] || {
+          id: playerId,
+          nickname: 'Player',
+          avatar: 'v_zap',
+          score: 0,
+          streak: 0,
+          answers: {},
+        };
+
+        const streakBonus = isCorrect ? p.streak * 100 : 0;
+        const pointsEarned = isCorrect ? ((currentQ?.points || 1000) + speedBonus + streakBonus) : 0;
+
+        const answerRecord = {
+          questionIndex,
+          selectedIndex,
+          isCorrect,
+          responseTimeMs,
+          pointsEarned,
+        };
+
+        const updatedAnswers = { ...(p.answers || {}) };
+        updatedAnswers[questionIndex] = answerRecord;
+
+        existingPlayers[playerId] = {
+          ...p,
+          score: p.score + pointsEarned,
+          streak: isCorrect ? p.streak + 1 : 0,
+          lastAnswer: answerRecord,
+          answers: updatedAnswers,
+        };
+
+        await supabase
+          .from('quiz_rooms')
+          .update({
+            players: existingPlayers,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('room_code', this.roomCode);
+      }
+    } catch (err) {
+      console.warn('Fallback submitAnswerDirectly error:', err);
     }
   }
 

@@ -115,12 +115,12 @@ export default function HostGamePage() {
     return () => clearInterval(interval);
   }, [room?.status, room?.scheduledStartAt, roomCode]);
 
-  // Active Lobby Database Syncer (Dual-channel fallback to guarantee all joined players are visible)
+  // Active Database Syncer (Guarantees both joined players and REST-submitted answers are processed)
   useEffect(() => {
-    if (!roomCode || room?.status !== 'LOBBY') return;
+    if (!roomCode || !room || (room.status !== 'LOBBY' && room.status !== 'QUESTION')) return;
 
     const manager = getRoomManager(roomCode);
-    const syncLobbyDb = async () => {
+    const syncStateDb = async () => {
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       const dbRoom = await manager.lookupRoomStateAsync();
       if (dbRoom && dbRoom.players) {
@@ -128,16 +128,57 @@ export default function HostGamePage() {
           if (!prev) return dbRoom;
           const currentPlayers = prev.players || {};
           const dbPlayers = dbRoom.players || {};
-          const hasNew = Object.keys(dbPlayers).some((k) => !currentPlayers[k]);
-          if (hasNew) {
-            sound.playPop();
-            const mergedPlayers = { ...currentPlayers, ...dbPlayers };
+          let changed = false;
+
+          const mergedPlayers = { ...currentPlayers };
+          Object.keys(dbPlayers).forEach((pid) => {
+            const dbP = dbPlayers[pid];
+            const localP = mergedPlayers[pid];
+            if (!localP) {
+              mergedPlayers[pid] = dbP;
+              changed = true;
+            } else {
+              // If DB player has a newer answer for the current question that local is missing
+              const dbAns = dbP.lastAnswer;
+              const localAns = localP.lastAnswer;
+              if (
+                dbAns &&
+                (!localAns || dbAns.questionIndex !== localAns.questionIndex || dbAns.responseTimeMs !== localAns.responseTimeMs)
+              ) {
+                mergedPlayers[pid] = {
+                  ...localP,
+                  score: Math.max(localP.score || 0, dbP.score || 0),
+                  streak: Math.max(localP.streak || 0, dbP.streak || 0),
+                  lastAnswer: dbAns,
+                  answers: { ...(localP.answers || {}), ...(dbP.answers || {}) },
+                };
+                changed = true;
+              }
+            }
+          });
+
+          if (changed) {
             const mergedRoom = { ...prev, players: mergedPlayers };
             manager.saveRoom(mergedRoom);
             manager.broadcast({
               type: 'ROOM_SYNC',
               room: mergedRoom,
             });
+
+            // Check if all players answered
+            if (prev.status === 'QUESTION') {
+              const totalPlayers = Object.keys(mergedPlayers).length;
+              const totalAnswered = Object.values(mergedPlayers).filter(
+                (p) => p.lastAnswer?.questionIndex === prev.currentQuestionIndex
+              ).length;
+              if (totalPlayers > 0 && totalAnswered >= totalPlayers) {
+                if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
+                autoAdvanceTimerRef.current = setTimeout(() => {
+                  advanceToNextQuestion();
+                }, 1500);
+              }
+            }
+
             return mergedRoom;
           }
           return prev;
@@ -145,9 +186,9 @@ export default function HostGamePage() {
       }
     };
 
-    const pollInterval = setInterval(syncLobbyDb, 1500);
+    const pollInterval = setInterval(syncStateDb, 1500);
     return () => clearInterval(pollInterval);
-  }, [roomCode, room?.status]);
+  }, [roomCode, room?.status, room?.currentQuestionIndex]);
 
   const handleBroadcastEvent = (event: BroadcastEvent) => {
     const manager = getRoomManager(roomCode);
