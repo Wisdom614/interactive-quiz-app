@@ -193,6 +193,8 @@ function SoloGameContent() {
       <div className="flex-1 max-w-4xl mx-auto w-full flex flex-col items-center justify-center p-4 gap-6">
         <Podium
           players={soloPlayers}
+          quiz={quiz}
+          totalQuestions={quiz.questions.length}
           onPlayAgain={() => {
             setUserScore(0);
             setBotScore(0);

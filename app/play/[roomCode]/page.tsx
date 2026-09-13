@@ -931,6 +931,8 @@ function PlayGameContent() {
 
           <Podium
             players={Object.values(room.players || {})}
+            quiz={room.quiz}
+            totalQuestions={totalQuestions}
             onPlayAgain={() => router.push('/')}
           />
 

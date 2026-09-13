@@ -325,6 +325,60 @@ export default function HostGamePage() {
     }
   };
 
+  const handleSetAutoStartTimer = (seconds: number | null) => {
+    sound.playClick();
+    const manager = getRoomManager(roomCode);
+    const scheduledStartAt = seconds ? Date.now() + (seconds * 1000) : null;
+
+    setRoom((prev) => {
+      if (!prev) return null;
+      const updated: GameRoom = {
+        ...prev,
+        scheduledStartAt,
+        settings: {
+          ...prev.settings,
+          autoStartSeconds: seconds || undefined,
+        },
+      };
+      roomRef.current = updated;
+      manager.saveRoom(updated);
+      manager.broadcast({
+        type: 'AUTO_START_SYNC',
+        scheduledStartAt,
+      });
+      manager.broadcast({
+        type: 'ROOM_SYNC',
+        room: updated,
+      });
+      return updated;
+    });
+  };
+
+  const handleAdjustTimer = (extraSeconds: number) => {
+    sound.playClick();
+    const manager = getRoomManager(roomCode);
+    setRoom((prev) => {
+      if (!prev) return null;
+      const base = prev.scheduledStartAt ? Math.max(prev.scheduledStartAt, Date.now()) : Date.now();
+      const scheduledStartAt = base + (extraSeconds * 1000);
+      const updated: GameRoom = {
+        ...prev,
+        scheduledStartAt,
+      };
+      roomRef.current = updated;
+      manager.saveRoom(updated);
+      manager.broadcast({
+        type: 'AUTO_START_SYNC',
+        scheduledStartAt,
+      });
+      manager.broadcast({
+        type: 'ROOM_SYNC',
+        room: updated,
+      });
+      return updated;
+    });
+  };
+
   const handleStartGame = () => {
     sound.playStreak();
     startQuestion(0);
@@ -569,6 +623,91 @@ export default function HostGamePage() {
             </div>
           </div>
 
+          {/* Host Start Mode & Automation Controls */}
+          <div className="w-full bg-white border-2 border-zinc-900 p-4 rounded-none shadow-sm flex flex-col gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-zinc-200">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-zinc-950" />
+                <span className="text-xs font-mono font-black text-zinc-950 uppercase">
+                  Quiz Start Mode
+                </span>
+              </div>
+              <span className={`text-[10px] font-mono font-bold px-2 py-0.5 border rounded-none ${
+                room.scheduledStartAt ? 'bg-amber-100 border-amber-900 text-amber-950' : 'bg-zinc-100 border-zinc-300 text-zinc-700'
+              }`}>
+                {room.scheduledStartAt ? '⚡ AUTOMATIC TIMER ACTIVE' : 'MANUAL START (HOST TRIGGER)'}
+              </span>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              {/* Mode Options */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleSetAutoStartTimer(null)}
+                  className={`px-3 py-1.5 text-xs font-mono font-bold uppercase border-2 border-zinc-900 rounded-none transition-all ${
+                    !room.scheduledStartAt
+                      ? 'bg-zinc-950 text-white shadow-sm'
+                      : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-800'
+                  }`}
+                >
+                  Manual Start
+                </button>
+
+                <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase mx-1">Or Auto Timer:</span>
+
+                {[
+                  { label: '30s', secs: 30 },
+                  { label: '1 Min', secs: 60 },
+                  { label: '2 Min', secs: 120 },
+                  { label: '5 Min', secs: 300 },
+                ].map((t) => (
+                  <button
+                    key={t.secs}
+                    type="button"
+                    onClick={() => handleSetAutoStartTimer(t.secs)}
+                    className={`px-2.5 py-1.5 text-xs font-mono font-bold uppercase border-2 border-zinc-900 rounded-none transition-all ${
+                      room.scheduledStartAt && room.settings?.autoStartSeconds === t.secs
+                        ? 'bg-amber-400 text-zinc-950 font-black'
+                        : 'bg-zinc-100 hover:bg-amber-100 text-zinc-800'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Adjust / Cancel Controls when Auto-timer is ticking */}
+              {room.scheduledStartAt && autoStartRemaining !== null && (
+                <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => handleAdjustTimer(30)}
+                    className="px-2 py-1 bg-zinc-100 hover:bg-zinc-200 border border-zinc-900 text-[10px] font-mono font-bold uppercase rounded-none"
+                    title="Add 30 seconds"
+                  >
+                    +30s
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAdjustTimer(60)}
+                    className="px-2 py-1 bg-zinc-100 hover:bg-zinc-200 border border-zinc-900 text-[10px] font-mono font-bold uppercase rounded-none"
+                    title="Add 1 minute"
+                  >
+                    +1m
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSetAutoStartTimer(null)}
+                    className="px-2 py-1 bg-rose-50 hover:bg-rose-100 border border-rose-900 text-rose-900 text-[10px] font-mono font-bold uppercase rounded-none"
+                  >
+                    Cancel Auto-Start
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Scheduled Auto-Start Banner */}
           {room.scheduledStartAt && autoStartRemaining !== null && (
             <div className="w-full bg-amber-50 border-2 border-amber-900 p-3.5 flex flex-col sm:flex-row items-center justify-between gap-2 rounded-none">
@@ -579,9 +718,22 @@ export default function HostGamePage() {
                   {Math.floor(autoStartRemaining / 60)}:{(autoStartRemaining % 60) < 10 ? '0' : ''}{autoStartRemaining % 60}
                 </span>
               </div>
-              <span className="text-[11px] font-mono text-amber-900 font-medium">
-                Quiz will automatically takeoff when the timer hits zero
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleStartGame}
+                  className="px-3 py-1 bg-zinc-950 hover:bg-blue-600 text-white text-[10px] font-mono font-bold uppercase border border-zinc-900 rounded-none"
+                >
+                  Start Now
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSetAutoStartTimer(null)}
+                  className="px-3 py-1 bg-white hover:bg-rose-50 text-rose-900 text-[10px] font-mono font-bold uppercase border border-rose-900 rounded-none"
+                >
+                  Switch to Manual
+                </button>
+              </div>
             </div>
           )}
 
@@ -831,6 +983,8 @@ export default function HostGamePage() {
           <Podium
             players={playersList}
             isHost={true}
+            quiz={room.quiz}
+            totalQuestions={room.quiz.questions.length}
             onPlayAgain={() => router.push('/create')}
           />
 
