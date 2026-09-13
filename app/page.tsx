@@ -176,7 +176,7 @@ export default function HomePage() {
               Create a Quiz & Host Live
             </h3>
             <p className="text-xs font-mono text-zinc-600 mb-5 leading-relaxed">
-              Type any topic or subject. Grok AI will generate 4-choice questions in seconds so you can host a game for friends or a classroom.
+              Generate AI prompts for ChatGPT/Claude/DeepSeek, import JSON answers, or build custom questions manually to host live games.
             </p>
             <Link
               href="/create"
