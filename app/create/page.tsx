@@ -13,6 +13,7 @@ import { getRoomManager, createInitialRoom } from '@/lib/store/gameStore';
 import { AuthService } from '@/lib/auth/authStore';
 import { MathText } from '@/components/MathText';
 import { generateExternalAIPrompt, parseImportedQuizJson } from '@/lib/ai/importer';
+import { ArenaLoader } from '@/components/ArenaLoader';
 
 const POPULAR_SUGGESTIONS = [
   'Mathematics & Calculus',
@@ -308,6 +309,27 @@ function QuizCreateContent() {
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 flex flex-col gap-6 w-full">
       
+      {/* AI Generating Modal Loader */}
+      {isGenerating && (
+        <ArenaLoader
+          variant="modal"
+          badge="KINETIC AI GENERATOR"
+          title={`Generating Quiz: "${topic || 'Calculus & Physics'}"`}
+          subtitle="AI is researching curriculum, synthesizing equations, and validating distractor options..."
+          steps={[
+            { label: 'Analyzing Topic & Core Concepts', detail: 'Extracting key formulas, historical facts & terminology...' },
+            { label: 'Synthesizing Verified Questions', detail: 'Formatting KaTeX LaTeX formulas and clean options...' },
+            { label: 'Generating Explanations & Host Lore', detail: 'Crafting step-by-step solutions for candidate review...' },
+            { label: 'Finalizing Arena Pack', detail: 'Assembling multiplayer game package...' },
+          ]}
+          tips={[
+            'Kinetic AI renders inline math formulas using KaTeX ($...$).',
+            'Option A/B/C/D distractor algorithms ensure high challenge quality.',
+            'You can also copy the prompt to ChatGPT, Claude, or DeepSeek and import JSON anytime.',
+          ]}
+        />
+      )}
+
       {/* Top Header */}
       <div className="flex items-center justify-between pb-3 border-b-2 border-zinc-900">
         <div className="flex items-center gap-3">

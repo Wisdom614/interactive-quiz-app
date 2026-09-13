@@ -13,6 +13,7 @@ import { Podium } from '@/components/Podium';
 import { VectorAvatar } from '@/components/VectorAvatar';
 import { MathText } from '@/components/MathText';
 import { QuizAnswersReview } from '@/components/QuizAnswersReview';
+import { ArenaLoader } from '@/components/ArenaLoader';
 
 const SHAPE_CONTROLS = [
   { bg: 'bg-rose-50 border-rose-900 text-rose-950 hover:bg-rose-100', solidBg: 'bg-rose-600', code: 'A' },
@@ -167,10 +168,17 @@ function SoloGameContent() {
 
   if (!quiz) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-        <Sparkles className="w-8 h-8 text-zinc-950 animate-spin mb-3" />
-        <h3 className="text-xs font-mono font-bold text-zinc-950 uppercase">Setting up Solo Quiz...</h3>
-      </div>
+      <ArenaLoader
+        variant="fullscreen"
+        badge="SOLO ARENA"
+        title="Synthesizing Solo Challenge..."
+        subtitle="Generating question pack and tuning the computer opponent..."
+        steps={[
+          { label: 'Synthesizing Practice Pack', detail: 'Selecting curriculum questions & math formulas...' },
+          { label: 'Initializing AI Competitor', detail: 'Calibrating computer response curve...' },
+          { label: 'Entering Match', detail: 'Get ready to answer on your keyboard or screen...' },
+        ]}
+      />
     );
   }
 

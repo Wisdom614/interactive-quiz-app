@@ -11,6 +11,7 @@ import { AvatarSelector } from '@/components/AvatarSelector';
 import { VECTOR_AVATARS } from '@/components/VectorAvatar';
 import { sound } from '@/lib/audio/soundEngine';
 import { lookupRoomStateAsync } from '@/lib/store/gameStore';
+import { ArenaLoader } from '@/components/ArenaLoader';
 
 export default function HomePage() {
   const router = useRouter();
@@ -19,6 +20,7 @@ export default function HomePage() {
   const [selectedAvatarId, setSelectedAvatarId] = useState(VECTOR_AVATARS[0].id);
   const [errorMsg, setErrorMsg] = useState('');
   const [isJoining, setIsJoining] = useState(false);
+  const [joinStep, setJoinStep] = useState(0);
 
   const handleJoinGame = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,8 +42,10 @@ export default function HomePage() {
 
     setIsJoining(true);
     setErrorMsg('');
+    setJoinStep(0);
 
     try {
+      setJoinStep(1); // Validating PIN
       const stateCheck = await lookupRoomStateAsync(cleanPin);
       if (stateCheck.status === 'NOT_FOUND') {
         setErrorMsg(`Game PIN #${cleanPin} not found. Please double-check the code on the host screen.`);
@@ -62,6 +66,7 @@ export default function HomePage() {
         return;
       }
 
+      setJoinStep(2); // Connecting & register
       sound.playSelect();
       
       const playerId = 'p_' + Math.random().toString(36).substring(2, 9);
@@ -71,10 +76,12 @@ export default function HomePage() {
         avatar: selectedAvatarId,
       }));
 
-      router.push(`/play/${cleanPin}?nickname=${encodeURIComponent(cleanNick)}&avatar=${encodeURIComponent(selectedAvatarId)}&pid=${playerId}`);
+      // Slight natural transition pause
+      setTimeout(() => {
+        router.push(`/play/${cleanPin}?nickname=${encodeURIComponent(cleanNick)}&avatar=${encodeURIComponent(selectedAvatarId)}&pid=${playerId}`);
+      }, 400);
     } catch {
       setErrorMsg('Connection error. Please try again.');
-    } finally {
       setIsJoining(false);
     }
   };
@@ -88,6 +95,23 @@ export default function HomePage() {
 
   return (
     <div className="relative flex-1 flex flex-col items-center justify-start px-4 py-8 sm:py-12 max-w-6xl mx-auto w-full">
+      
+      {/* Dynamic Joining Loader Modal */}
+      {isJoining && (
+        <ArenaLoader
+          variant="modal"
+          badge="JOINING ARENA"
+          pinCode={pinCode.trim().toUpperCase()}
+          title={`Connecting to Arena #${pinCode.trim().toUpperCase()}`}
+          subtitle="Verifying PIN and establishing real-time synchronization with host..."
+          currentStepIndex={joinStep}
+          steps={[
+            { label: 'Scanning Cloud Frequencies', detail: 'Searching for live quiz room...' },
+            { label: 'Verifying Arena Status', detail: 'Checking PIN validity & candidate capacity...' },
+            { label: 'Handshaking Real-Time Channel', detail: 'Registering your player avatar...' },
+          ]}
+        />
+      )}
       
       {/* Main Headline */}
       <h1 className="text-3xl sm:text-5xl md:text-6xl font-black font-mono text-center text-zinc-950 tracking-tight leading-tight max-w-4xl mb-3 uppercase">

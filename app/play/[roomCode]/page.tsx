@@ -16,6 +16,7 @@ import { VectorAvatar, VECTOR_AVATARS } from '@/components/VectorAvatar';
 import { AvatarSelector } from '@/components/AvatarSelector';
 import { MathText } from '@/components/MathText';
 import { QuizAnswersReview } from '@/components/QuizAnswersReview';
+import { ArenaLoader } from '@/components/ArenaLoader';
 
 const SHAPE_CONTROLS = [
   {
@@ -559,27 +560,21 @@ function PlayGameContent() {
     setTimeout(() => setCopiedInvite(false), 2500);
   };
 
-  // 1. Loading Screen (High-tech Radar / Searching UI)
+  // 1. Loading Screen (High-tech Radar / Searching UI with Step Checklist & Tips)
   if (isLoading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center max-w-md mx-auto w-full">
-        <div className="relative flex items-center justify-center w-24 h-24 mb-6">
-          <div className="absolute inset-0 rounded-full border-2 border-blue-500/20 animate-ping" />
-          <div className="absolute inset-2 rounded-full border-2 border-dashed border-blue-600 animate-spin" />
-          <div className="w-14 h-14 bg-zinc-950 border-2 border-zinc-900 flex items-center justify-center text-white shadow-lg">
-            <Sparkles className="w-6 h-6 text-blue-400 animate-pulse" />
-          </div>
-        </div>
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 border-2 border-blue-900 text-blue-950 text-xs font-mono font-black uppercase mb-3">
-          <span>Searching Arena #{roomCode}</span>
-        </div>
-        <h2 className="text-base sm:text-lg font-mono font-black text-zinc-950 uppercase tracking-tight">
-          Establishing Real-Time Link...
-        </h2>
-        <p className="text-xs font-mono text-zinc-600 mt-1 max-w-xs leading-relaxed">
-          Please wait comfortably while we search for your game room and synchronize with the host.
-        </p>
-      </div>
+      <ArenaLoader
+        variant="fullscreen"
+        badge="REALTIME SYNC"
+        pinCode={roomCode}
+        title={`Connecting to Arena #${roomCode}...`}
+        subtitle="Handshaking with host session and downloading verified questions..."
+        steps={[
+          { label: 'Scanning Cloud Frequencies', detail: 'Connecting to Supabase Realtime mesh...' },
+          { label: 'Synchronizing Question Pack', detail: 'Parsing formulas & answer parameters...' },
+          { label: 'Entering Game Arena', detail: 'Waiting for live round start...' },
+        ]}
+      />
     );
   }
 
