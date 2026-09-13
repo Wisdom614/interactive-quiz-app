@@ -9,12 +9,143 @@ export interface GenerateQuizParams {
   timePerQuestion?: number;
 }
 
-
 const SAMPLE_QUIZZES: Record<string, Quiz> = {
+  calculus: {
+    id: 'sample-math-calculus-1',
+    title: 'Differential & Integral Calculus',
+    description: 'Foundational derivatives, definite integrals, and series expansions.',
+    category: 'Mathematics',
+    difficulty: 'medium',
+    topic: 'Calculus & Pure Mathematics',
+    createdAt: new Date().toISOString(),
+    questions: [
+      {
+        id: 'calc-1',
+        question: 'What is the derivative $\\frac{dy}{dx}$ of the function $f(x) = 3x^4 - 5x^2 + 8x - 12$?',
+        options: ['$12x^3 - 10x + 8$', '$12x^3 - 5x + 8$', '$3x^3 - 10x$', '$7x^3 - 10x + 8$'],
+        correctIndex: 0,
+        timeLimit: 15,
+        points: 1000,
+        explanation: 'Applying the power rule $\\frac{d}{dx}[x^n] = n x^{n-1}$ term-by-term yields $12x^3 - 10x + 8$.',
+        aiHostComment: 'Standard polynomial differentiation.'
+      },
+      {
+        id: 'calc-2',
+        question: 'Evaluate the definite integral $\\int_{0}^{2} (3x^2 - 2x + 1) \\, dx$.',
+        options: ['$6$', '$8$', '$4$', '$10$'],
+        correctIndex: 0,
+        timeLimit: 20,
+        points: 1000,
+        explanation: 'Antiderivative is $F(x) = x^3 - x^2 + x$. $F(2) - F(0) = (8 - 4 + 2) - 0 = 6$.',
+        aiHostComment: 'Fundamental theorem of calculus applied cleanly.'
+      },
+      {
+        id: 'calc-3',
+        question: 'What is the limit $\\lim_{x \\to 0} \\frac{\\sin(3x)}{x}$?',
+        options: ['$3$', '$1$', '$0$', '$\\infty$'],
+        correctIndex: 0,
+        timeLimit: 15,
+        points: 1000,
+        explanation: 'Using the fundamental trigonometric limit $\\lim_{u \\to 0} \\frac{\\sin u}{u} = 1$, $\\lim_{x \\to 0} 3 \\cdot \\frac{\\sin(3x)}{3x} = 3(1) = 3$.',
+        aiHostComment: 'Classic trigonometric limit property.'
+      },
+      {
+        id: 'calc-4',
+        question: 'Which rule is used to compute the derivative of a composition of functions $f(g(x))$?',
+        options: ['Chain Rule', 'Product Rule', 'Quotient Rule', 'L\'Hôpital\'s Rule'],
+        correctIndex: 0,
+        timeLimit: 15,
+        points: 1000,
+        explanation: 'The Chain Rule states that $\\frac{d}{dx}[f(g(x))] = f\'(g(x)) \\cdot g\'(x)$.',
+        aiHostComment: 'Core theorem for nested function derivatives.'
+      },
+      {
+        id: 'calc-5',
+        question: 'What is the derivative of $f(x) = \\ln(x^2 + 1)$ with respect to $x$?',
+        options: ['$\\frac{2x}{x^2 + 1}$', '$\\frac{1}{x^2 + 1}$', '$\\frac{2}{x^2 + 1}$', '$\\frac{x}{x^2 + 1}$'],
+        correctIndex: 0,
+        timeLimit: 15,
+        points: 1000,
+        explanation: 'By the chain rule, $\\frac{d}{dx}[\\ln(u)] = \\frac{u\'}{u} = \\frac{2x}{x^2 + 1}$.',
+        aiHostComment: 'Logarithmic chain rule differentiation.'
+      }
+    ]
+  },
+  javascript: {
+    id: 'sample-tech-js-1',
+    title: 'Modern JavaScript & Web Engineering',
+    description: 'Event loop, asynchronous patterns, closures, and ES6+ semantics.',
+    category: 'Computer Science',
+    difficulty: 'medium',
+    topic: 'JavaScript & Web Engineering',
+    createdAt: new Date().toISOString(),
+    questions: [
+      {
+        id: 'js-1',
+        question: 'In JavaScript\'s event loop, where are resolved Promise callbacks placed for execution?',
+        options: ['Microtask Queue', 'Macrotask Queue (Task Queue)', 'Call Stack directly', 'Render Queue'],
+        correctIndex: 0,
+        timeLimit: 15,
+        points: 1000,
+        explanation: 'Promise reactions (`.then`, `.catch`, `await`) are enqueued into the microtask queue, which drains before the next macrotask is processed.',
+        aiHostComment: 'Crucial concept for asynchronous JavaScript concurrency.'
+      },
+      {
+        id: 'js-2',
+        question: 'What is the output of `typeof null` in JavaScript according to the ECMAScript standard?',
+        options: ['"object"', '"null"', '"undefined"', '"symbol"'],
+        correctIndex: 0,
+        timeLimit: 15,
+        points: 1000,
+        explanation: '`typeof null === "object"` is a legacy artifact in JavaScript from the initial implementation where object type tags were 0.',
+        aiHostComment: 'Famous JavaScript type idiosyncrasy.'
+      },
+      {
+        id: 'js-3',
+        question: 'Which method creates a new shallow copy of an array with elements that pass a provided test function?',
+        options: ['Array.prototype.filter()', 'Array.prototype.map()', 'Array.prototype.reduce()', 'Array.prototype.forEach()'],
+        correctIndex: 0,
+        timeLimit: 15,
+        points: 1000,
+        explanation: '`filter()` calls a predicate function on each element and constructs a new array containing all elements that return true.',
+        aiHostComment: 'Core functional programming primitive in modern JS.'
+      },
+      {
+        id: 'js-4',
+        question: 'What is a JavaScript closure?',
+        options: [
+          'A function bundled together with references to its lexical environment',
+          'A method to close network connections automatically',
+          'An anonymous function that executes only once',
+          'A syntactic wrapper around try/catch/finally blocks'
+        ],
+        correctIndex: 0,
+        timeLimit: 15,
+        points: 1000,
+        explanation: 'A closure gives an inner function access to an outer function\'s scope even after the outer function has returned.',
+        aiHostComment: 'Essential mechanism for state encapsulation in JS.'
+      },
+      {
+        id: 'js-5',
+        question: 'What does the `===` operator perform in JavaScript compared to `==`?',
+        options: [
+          'Strict equality comparison without type coercion',
+          'Loose equality comparison with automatic type coercion',
+          'Deep structural object equality comparison',
+          'Memory pointer reference assignment'
+        ],
+        correctIndex: 0,
+        timeLimit: 15,
+        points: 1000,
+        explanation: 'The strict equality operator `===` checks both value and type without converting types before comparison.',
+        aiHostComment: 'Fundamental comparison rule in modern TypeScript/JavaScript.'
+      }
+    ]
+  },
   cameroon_history: {
     id: 'sample-cm-history-1',
     title: 'Cameroon History & Constitutional Evolution (1884–Present)',
-    description: 'Authentic Cameroon GCE & Concours preparation on national history, treaties, and constitutional milestones.',
+    description: 'National treaties, independence, reunification, and constitutional milestones.',
     category: 'Cameroon History',
     difficulty: 'medium',
     topic: 'Cameroon History & Concours',
@@ -22,13 +153,13 @@ const SAMPLE_QUIZZES: Record<string, Quiz> = {
     questions: [
       {
         id: 'cm-h-1',
-        question: 'On what exact date was the Germano-Douala Treaty signed between German representative Gustav Nachtigal and the Duala Kings (King Bell and King Akwa)?',
+        question: 'On what exact date was the Germano-Douala Treaty signed between Gustav Nachtigal and the Duala Kings (King Bell and King Akwa)?',
         options: ['July 12, 1884', 'January 1, 1960', 'October 1, 1961', 'May 20, 1972'],
         correctIndex: 0,
         timeLimit: 15,
         points: 1000,
         explanation: 'The Germano-Douala Treaty was officially signed on July 12, 1884, establishing the German Protectorate of Kamerun.',
-        aiHostComment: 'A foundational milestone in Cameroonian colonial history and GCE syllabus.'
+        aiHostComment: 'A foundational milestone in Cameroonian colonial history.'
       },
       {
         id: 'cm-h-2',
@@ -48,17 +179,17 @@ const SAMPLE_QUIZZES: Record<string, Quiz> = {
         timeLimit: 15,
         points: 1000,
         explanation: 'Cameroon is divided into 10 administrative regions (Centre, Littoral, West, North West, South West, South, East, Adamawa, North, and Far North).',
-        aiHostComment: 'Standard civics and concours question on Cameroonian territorial administration.'
+        aiHostComment: 'Standard civics question on Cameroonian territorial administration.'
       },
       {
         id: 'cm-h-4',
-        question: 'Which prominent nationalist leader was the first Secretary-General of the Union des Populations du Cameroun (UPC), assassinated in the Sanaga-Maritime in 1958?',
+        question: 'Which prominent nationalist leader was the first Secretary-General of the Union des Populations du Cameroun (UPC), assassinated in 1958?',
         options: ['Ruben Um Nyobè', 'Félix-Roland Moumié', 'Ernest Ouandié', 'Ahmadou Ahidjo'],
         correctIndex: 0,
         timeLimit: 15,
         points: 1000,
-        explanation: 'Ruben Um Nyobè (Mpodol) led the UPC campaign for independence and reunification before he was killed by French forces on September 13, 1958.',
-        aiHostComment: 'A revered figure in the Cameroonian independence struggle.'
+        explanation: 'Ruben Um Nyobè (Mpodol) led the UPC campaign for independence and reunification before he was killed on September 13, 1958.',
+        aiHostComment: 'A key historical figure in the Cameroonian independence struggle.'
       },
       {
         id: 'cm-h-5',
@@ -68,68 +199,7 @@ const SAMPLE_QUIZZES: Record<string, Quiz> = {
         timeLimit: 15,
         points: 1000,
         explanation: 'Mount Cameroon (Fako), located in the South West Region, is an active volcano and the highest point in Cameroon at 4,095 meters.',
-        aiHostComment: 'Home to the famous annual Mount Cameroon Race of Hope.'
-      }
-    ]
-  },
-  cameroon_science: {
-    id: 'sample-cm-math-1',
-    title: 'Cameroon GCE O/L & A/L Mathematics & Physical Sciences',
-    description: 'Rigorous calculation and conceptual questions aligned with the Cameroon GCE Board syllabus.',
-    category: 'Mathematics & Science',
-    difficulty: 'medium',
-    topic: 'Cameroon GCE Mathematics',
-    createdAt: new Date().toISOString(),
-    questions: [
-      {
-        id: 'cm-m-1',
-        question: 'Solve for $x$ in the quadratic equation $2x^2 - 7x + 3 = 0$.',
-        options: ['$x = 3$ or $x = \\frac{1}{2}$', '$x = -3$ or $x = -\\frac{1}{2}$', '$x = 2$ or $x = \\frac{3}{2}$', '$x = 1$ or $x = 6$'],
-        correctIndex: 0,
-        timeLimit: 20,
-        points: 1000,
-        explanation: 'Factoring: $(2x - 1)(x - 3) = 0 \\implies x = 3$ or $x = \\frac{1}{2}$.',
-        aiHostComment: 'Classic Cameroon GCE Ordinary Level Paper 1 algebra question.'
-      },
-      {
-        id: 'cm-m-2',
-        question: 'In Cameroon, the currency is the Central African CFA Franc (XAF). If an item costs 15,000 XAF with a 19.25% VAT, what is the total amount payable?',
-        options: ['17,887.5 XAF', '16,500 XAF', '18,200 XAF', '15,925 XAF'],
-        correctIndex: 0,
-        timeLimit: 20,
-        points: 1000,
-        explanation: 'Total = $15,000 \\times (1 + 0.1925) = 15,000 \\times 1.1925 = 17,887.5$ XAF.',
-        aiHostComment: 'Commercial Arithmetic in line with Cameroonian tax and economics standards.'
-      },
-      {
-        id: 'cm-m-3',
-        question: 'Find the derivative $\\frac{dy}{dx}$ if $y = 3x^4 - 5x^2 + 8x - 12$.',
-        options: ['$12x^3 - 10x + 8$', '$12x^3 - 5x + 8$', '$3x^3 - 10x$', '$7x^3 - 10x + 8$'],
-        correctIndex: 0,
-        timeLimit: 15,
-        points: 1000,
-        explanation: 'Using the power rule $\\frac{d}{dx}(x^n) = n x^{n-1}$, we obtain $12x^3 - 10x + 8$.',
-        aiHostComment: 'Standard GCE Advanced Level Pure Mathematics calculus problem.'
-      },
-      {
-        id: 'cm-m-4',
-        question: 'What is the SI unit of electric potential difference in physical measurement?',
-        options: ['Volt (V)', 'Ampere (A)', 'Ohm ($\\Omega$)', 'Joule (J)'],
-        correctIndex: 0,
-        timeLimit: 15,
-        points: 1000,
-        explanation: 'Electric potential difference (voltage) is measured in Volts (V), defined as Joules per Coulomb.',
-        aiHostComment: 'Core GCE Physics fundamental concepts.'
-      },
-      {
-        id: 'cm-m-5',
-        question: 'Which of the following organic compounds is the primary constituent of natural gas extracted at the Logbaba gas field in Douala, Cameroon?',
-        options: ['Methane ($CH_4$)', 'Ethane ($C_2H_6$)', 'Propane ($C_3H_8$)', 'Butane ($C_4H_{10}$)'],
-        correctIndex: 0,
-        timeLimit: 15,
-        points: 1000,
-        explanation: 'Methane ($CH_4$) comprises over 90% of natural gas reserves processed for industrial energy in Douala.',
-        aiHostComment: 'Cameroon industrial chemistry application.'
+        aiHostComment: 'Home to the annual Mount Cameroon Race of Hope.'
       }
     ]
   }
@@ -143,12 +213,16 @@ export async function generateQuizWithGrok(params: GenerateQuizParams): Promise<
   const tone = params.tone || 'scholarly';
 
   if (!apiKey || apiKey.includes('your-xai-key') || apiKey.includes('your-grok-key') || apiKey.includes('your-api-key')) {
-    console.warn('[Kinetic AI] No valid API key detected in .env. Using built-in generator fallback.');
-    if (topic.toLowerCase().includes('hist') || topic.toLowerCase().includes('cameroon') || topic.toLowerCase().includes('concours') || topic.toLowerCase().includes('civic')) {
-      return { ...SAMPLE_QUIZZES.cameroon_history, topic };
+    console.warn('[Kinetic AI] No active API key detected in .env. Using built-in generator fallback.');
+    const lower = topic.toLowerCase();
+    if (lower.includes('calc') || lower.includes('math') || lower.includes('integral') || lower.includes('deriv')) {
+      return { ...SAMPLE_QUIZZES.calculus, topic };
     }
-    if (topic.toLowerCase().includes('math') || topic.toLowerCase().includes('physic') || topic.toLowerCase().includes('sci') || topic.toLowerCase().includes('gce')) {
-      return { ...SAMPLE_QUIZZES.cameroon_science, topic };
+    if (lower.includes('js') || lower.includes('javascript') || lower.includes('code') || lower.includes('web') || lower.includes('programming')) {
+      return { ...SAMPLE_QUIZZES.javascript, topic };
+    }
+    if (lower.includes('cameroon') || lower.includes('concours')) {
+      return { ...SAMPLE_QUIZZES.cameroon_history, topic };
     }
     return generateSmartMockQuiz(topic, count, difficulty);
   }
@@ -160,65 +234,62 @@ export async function generateQuizWithGrok(params: GenerateQuizParams): Promise<
     : 'https://api.x.ai/v1/chat/completions';
   const modelName = isGroq ? 'openai/gpt-oss-120b' : 'grok-2-latest';
 
-  console.log(`[Kinetic AI] Calling ${isGroq ? 'Groq' : 'xAI'} API (${modelName}) for topic: "${topic}" (Cameroon syllabus & academic style)...`);
+  console.log(`[Kinetic AI] Calling ${isGroq ? 'Groq' : 'xAI'} API (${modelName}) for topic: "${topic}"...`);
 
-  const systemPrompt = `You are an elite educational examination author and senior curriculum inspector specializing in Cameroonian academic standards (Cameroon GCE Board Ordinary Level and Advanced Level, National Competitive Concours such as ENAM, ENS, Polytech, FHS/CUSS, ENSET, IRIC, and General Knowledge / Culture Générale).
+  const systemPrompt = `You are a master academic quiz author and subject-matter expert across all disciplines (Sciences, Mathematics, Technology & Coding, History & Civilizations, Literature, Geography, Medicine, Arts, and Pop Culture).
 
-YOUR TASK:
-Generate a structured JSON quiz of EXACTLY ${count} questions on the requested topic, adhering to the authentic Cameroonian question-setting pedagogy and style.
+YOUR GOAL:
+Generate a high-quality, factual, 100% topic-faithful JSON quiz with EXACTLY ${count} multiple-choice questions on the user's specific requested topic: "${topic}".
 
-CRITICAL CAMEROONIAN CURRICULUM & QUESTION-SETTING RULES:
-1. PEDAGOGICAL ACCURACY:
-   - Formulate clear, syllabus-grounded, unambiguous multiple-choice questions (Paper 1 style).
-   - Questions must be direct and factually authoritative (e.g. "Which of the following is...", "What was the immediate consequence of...", "Calculate the value of...", "In which year did...").
-   - If the topic relates to History, Civics, Geography, Law, Economics, General Knowledge, or Sports:
-     * Ground references in authentic Cameroonian institutions (The Constitution of Cameroon, 10 Regions & Divisional capitals, Presidency, Prime Ministry, National Assembly, Senate, Constitutional Council).
-     * Cameroon History (German Kamerun 1884 Treaty with Kings Bell and Akwa, WWI partition 1916, League of Nations Mandates & UN Trusteeships, UPC nationalist leaders Ruben Um Nyobe, Felix Moumie, Ernest Ouandie, Independence Jan 1 1960, Feb 1961 Plebiscite, July 1961 Foumban Conference, Oct 1 1961 Reunification, May 20 1972 Unitary State, 1984 Republic of Cameroon, Presidents Ahmadou Ahidjo and Paul Biya).
-     * Geography & Economy (Mount Fako / Mount Cameroon 4095m, Sanaga River, Lake Nyos, Waza Park, CDC, Pamol, Socapalm, Sodecoton, Alucam, SONARA, Central African CFA Franc XAF, BEAC, CEMAC).
-     * Culture & Sports (Indomitable Lions, 5 AFCON championships, Samuel Eto'o, Roger Milla, Rigobert Song, Makossa, Bikutsi, 250+ ethnic groups, Official Bilingualism: English & French).
-   - If the topic is STEM (Mathematics, Physics, Chemistry, Biology, Computer Science):
-     * Follow Cameroon GCE Ordinary Level (Form 1–5) or Advanced Level (Lower Sixth–Upper Sixth) rigor.
-     * Use standard SI units and Cameroonian currency (XAF / FCFA) where applicable.
+STRICT GUIDELINES:
+1. PURE TOPIC FIDELITY (NO UNWANTED REGIONAL ASSUMPTIONS):
+   - Focus 100% of questions and options on the user's explicit topic ("${topic}").
+   - DO NOT inject specific regional or country contexts (e.g. Cameroon, UK, US) UNLESS the topic explicitly mentions that region or country.
+   - For example:
+     * If the topic is "JavaScript Promises", generate questions about JavaScript asynchronous runtime, Promise.all, microtasks, async/await.
+     * If the topic is "World War II", generate questions about WWII battles, treaties, and global leaders.
+     * If the topic is "Calculus", generate real mathematical derivatives, integrals, and limits with LaTeX.
+     * If the topic is "Cameroon History", generate real Cameroon colonial treaties, constitutional milestones, and historical leaders.
+   - NEVER generate meaningless abstract placeholder questions (such as "What is Axiom Alpha?"). Every question must test real, interpretable, factual knowledge, definitions, equations, or concepts.
 
-2. MATHEMATICS & SCIENTIFIC FORMULAS:
-   - For ANY mathematical, physical, or chemical equations, powers, fractions, roots, or symbols, ALWAYS format with standard LaTeX enclosed in single dollar signs $...$ (e.g. "$2x^2 - 7x + 3 = 0$", "$\\frac{dy}{dx} = 12x^3 - 10x$", "$\\int_0^2 3x^2 dx$", "$E = mc^2$", "$CH_4$", "$H_2SO_4$").
-
-3. DISTRACTOR & OPTION INTEGRITY:
-   - Provide EXACTLY 4 distinct, plausible options (A, B, C, D) per question.
-   - Distractors must represent plausible student misconceptions, related dates, or accurate alternative terms.
-   - Distribute the correct answers evenly across index 0 to 3.
+2. ACCURATE OPTIONS & DISTRACTORS:
+   - Provide EXACTLY 4 distinct, meaningful, and plausible options per question.
+   - Distractors must be authentic related concepts, realistic common mistakes, or historical/factual alternatives.
+   - Distribute the correct answers across indexes 0, 1, 2, and 3.
    - Do NOT include option prefixes like "A)", "B.", or "Option 1" inside the option text strings.
 
-4. EXACT QUESTION COUNT:
-   - You MUST generate EXACTLY ${count} questions in the "questions" array. Do not truncate or stop early.
+3. FORMULAS & STEM NOTATION:
+   - For all mathematical, physical, chemical, or algorithmic equations, powers, fractions, and symbols, ALWAYS format with standard LaTeX enclosed in single dollar signs $...$ (e.g. "$2x^2 - 7x + 3 = 0$", "$\\frac{dy}{dx} = 12x^3$", "$O(n \\log n)$", "$H_2SO_4$", "$E = mc^2$").
 
-5. FORMAT & TONE:
-   - Strictly return a valid JSON object matching the TypeScript interface below without markdown quotes.
+4. EXACT COUNT & METADATA:
+   - You MUST generate EXACTLY ${count} questions in the "questions" array.
+   - Include a concise, clear explanation explaining why the correct answer is right and why distractors are wrong.
+   - Provide an analytical host comment.
    - Tone: ${tone}.
-   - Do NOT use unicode emojis in questions or options.
+   - Difficulty: ${difficulty}.
 
-JSON SCHEMA:
+Strictly output ONLY valid JSON matching this schema:
 {
-  "title": "Precise, authoritative title (e.g. Cameroon GCE Advanced Level Pure Mathematics)",
-  "description": "1-sentence synopsis referencing the curriculum context",
-  "category": "Curriculum Domain (e.g. Cameroon History, GCE Mathematics, Physical Sciences, General Knowledge)",
+  "title": "Precise authoritative quiz title",
+  "description": "1-sentence overview of the quiz scope",
+  "category": "Discipline Category (e.g. Mathematics, Computer Science, World History, Physics, Biology, etc.)",
   "difficulty": "${difficulty}",
   "questions": [
     {
-      "question": "Clear, syllabus-accurate question stem (use $...$ for formulas)",
+      "question": "Clear, meaningful question stem (use $...$ for formulas)",
       "options": ["Plausible Option A", "Plausible Option B", "Plausible Option C", "Plausible Option D"],
-      "correctIndex": 0, // 0, 1, 2, or 3
+      "correctIndex": 0,
       "timeLimit": 15,
       "points": 1000,
-      "explanation": "Clear 1-2 sentence step-by-step or historical proof",
-      "aiHostComment": "Analytical insight grounded in the subject matter"
+      "explanation": "Clear 1-2 sentence factual or mathematical explanation",
+      "aiHostComment": "Engaging analytical commentary"
     }
   ]
 }`;
 
-  const userPrompt = `Generate a ${difficulty}-level Cameroon examination quiz on the topic: "${topic}".
+  const userPrompt = `Generate a ${difficulty}-level quiz on the topic: "${topic}".
 Total Questions: EXACTLY ${count} questions.
-Ensure all questions follow authentic Cameroonian GCE / Concours style and formatting.`;
+Ensure all questions are concrete, meaningful, factually accurate, and strictly focused on "${topic}".`;
 
   try {
     const response = await fetch(endpoint, {
@@ -272,13 +343,13 @@ Ensure all questions follow authentic Cameroonian GCE / Concours style and forma
       };
     });
 
-    console.log(`[Kinetic AI] Successfully generated ${formattedQuestions.length} Cameroon-style questions from ${isGroq ? 'Groq' : 'Grok'} AI!`);
+    console.log(`[Kinetic AI] Successfully generated ${formattedQuestions.length} topic-faithful questions from ${isGroq ? 'Groq' : 'Grok'} AI!`);
 
     return {
       id: quizId,
-      title: parsed.title || `${topic} Examination Arena`,
-      description: parsed.description || `Cameroon curriculum & examination assessment on "${topic}"`,
-      category: parsed.category || 'Cameroon Academic & Concours',
+      title: parsed.title || `${topic} Quiz Arena`,
+      description: parsed.description || `Comprehensive assessment on "${topic}"`,
+      category: parsed.category || 'General Knowledge & Sciences',
       difficulty: difficulty,
       topic: topic,
       questions: formattedQuestions,
@@ -291,114 +362,192 @@ Ensure all questions follow authentic Cameroonian GCE / Concours style and forma
 }
 
 function generateSmartMockQuiz(topic: string, count: number, difficulty: 'easy' | 'medium' | 'hard' | 'chaotic'): Quiz {
-  const isHistory = topic.toLowerCase().includes('hist') || topic.toLowerCase().includes('cameroon') || topic.toLowerCase().includes('civic') || topic.toLowerCase().includes('concours');
-  const isSTEM = topic.toLowerCase().includes('math') || topic.toLowerCase().includes('physic') || topic.toLowerCase().includes('chem') || topic.toLowerCase().includes('sci');
+  const lower = topic.toLowerCase();
 
-  const cmHistoryPool = [
-    {
-      q: 'On what date did East Cameroon (former French Cameroun) gain national independence?',
-      opts: ['January 1, 1960', 'October 1, 1961', 'May 20, 1972', 'July 12, 1884'],
-      correct: 0,
-      exp: 'The Republic of Cameroun gained its independence on January 1, 1960, under President Ahmadou Ahidjo.',
-      comment: 'Key independence date in the Cameroon GCE History curriculum.'
-    },
-    {
-      q: 'Which treaty ended German colonial rule over Kamerun following World War I?',
-      opts: ['Treaty of Versailles (1919)', 'Treaty of Berlin (1885)', 'Foumban Accord (1961)', 'Yaounde Convention (1963)'],
-      correct: 0,
-      exp: 'The Treaty of Versailles in 1919 officially stripped Germany of Kamerun, partitioning it between Britain and France as League of Nations mandates.',
-      comment: 'Core milestone in the partition and mandate era of Cameroon.'
-    },
-    {
-      q: 'What significant national event occurred on May 20, 1972, celebrated as Cameroon\'s National Day?',
-      opts: ['Referendum establishing the Unitary State', 'Signing of the Germano-Douala Treaty', 'Reunification of the Two Cameroons', 'Promulgation of the 1996 Constitution'],
-      correct: 0,
-      exp: 'The May 20, 1972 referendum transformed the Federal Republic of Cameroon into the United Republic of Cameroon.',
-      comment: 'Basis for Cameroon\'s National Day (Fête Nationale du 20 Mai).'
-    },
-    {
-      q: 'What is the administrative headquarters of the South West Region of Cameroon?',
-      opts: ['Buea', 'Limbe', 'Kumba', 'Mamfe'],
-      correct: 0,
-      exp: 'Buea is the regional capital of the South West Region and former capital of German Kamerun and British Southern Cameroons.',
-      comment: 'Standard administrative geography of Cameroon.'
-    },
-    {
-      q: 'Which national agro-industrial company is the largest public employer in Cameroon, operating rubber, palm oil, and tea plantations in the South West and Littoral regions?',
-      opts: ['Cameroon Development Corporation (CDC)', 'PAMOL Plantations PLC', 'SOCAPALM', 'SODECOTON'],
-      correct: 0,
-      exp: 'The Cameroon Development Corporation (CDC), created in 1947, is the second largest employer in Cameroon after the State.',
-      comment: 'Key economic enterprise in the Cameroon GCE Economics and Geography syllabus.'
-    },
-    {
-      q: 'How many times has the Cameroon Men\'s National Football Team (Indomitable Lions) won the Africa Cup of Nations (AFCON)?',
-      opts: ['5 Times (1984, 1988, 2000, 2002, 2017)', '3 Times (1990, 2000, 2010)', '4 Times (1984, 1988, 1990, 2002)', '6 Times (1982, 1984, 1988, 2000, 2002, 2017)'],
-      correct: 0,
-      exp: 'Cameroon won the AFCON trophy in 1984 (Ivory Coast), 1988 (Morocco), 2000 (Nigeria/Ghana), 2002 (Mali), and 2017 (Gabon).',
-      comment: 'Iconic sports heritage of the Indomitable Lions.'
-    },
-    {
-      q: 'Which major Cameroonian river is the longest entirely within the national territory and supplies the Song Loulou and Edéa hydroelectric power stations?',
-      opts: ['Sanaga River', 'Benue River', 'Nyong River', 'Wouri River'],
-      correct: 0,
-      exp: 'The Sanaga River (918 km) is Cameroon\'s longest river, providing the majority of the nation\'s hydroelectric energy.',
-      comment: 'Standard Cameroon GCE Geography Paper 1 question.'
-    },
-    {
-      q: 'In the Parliament of Cameroon, how many members make up the National Assembly (Deputies)?',
-      opts: ['180 Members', '100 Members', '120 Members', '200 Members'],
-      correct: 0,
-      exp: 'The National Assembly of Cameroon comprises 180 members elected for a 5-year term.',
-      comment: 'Fundamental civics and constitutional law in Cameroon.'
-    }
-  ];
-
-  const cmSTEMPool = [
+  const mathPool = [
     {
       q: 'Evaluate the derivative $\\frac{d}{dx}\\left[\\ln(3x^2 + 1)\\right]$ using the chain rule.',
       opts: ['$\\frac{6x}{3x^2 + 1}$', '$\\frac{3x}{3x^2 + 1}$', '$\\frac{1}{3x^2 + 1}$', '$\\frac{6x^2}{3x^2 + 1}$'],
       correct: 0,
       exp: 'By the chain rule: $\\frac{d}{dx}[\\ln(u)] = \\frac{u\'}{u} = \\frac{6x}{3x^2 + 1}$.',
-      comment: 'Classic GCE Advanced Level Pure Mathematics calculus problem.'
+      comment: 'Core logarithmic differentiation problem.'
     },
     {
-      q: 'A force of $50\\text{ N}$ acts on an object of mass $5\\text{ kg}$ on a smooth horizontal surface. What is its acceleration?',
-      opts: ['$10\\text{ m/s}^2$', '$250\\text{ m/s}^2$', '$0.1\\text{ m/s}^2$', '$45\\text{ m/s}^2$'],
+      q: 'What is the sum of the infinite geometric series $\\sum_{n=0}^{\\infty} \\left(\\frac{1}{3}\\right)^n$?',
+      opts: ['$\\frac{3}{2}$', '$\\frac{2}{3}$', '$2$', '$3$'],
       correct: 0,
-      exp: 'Using Newton\'s Second Law: $F = ma \\implies a = \\frac{F}{m} = \\frac{50}{5} = 10\\text{ m/s}^2$.',
-      comment: 'Core GCE Ordinary & Advanced Level Physics mechanics principle.'
+      exp: 'For $|r| < 1$, sum $= \\frac{a}{1 - r} = \\frac{1}{1 - 1/3} = \\frac{1}{2/3} = \\frac{3}{2}$.',
+      comment: 'Classic infinite series convergence.'
     },
     {
-      q: 'What is the empirical formula of a hydrocarbon containing $80\\%$ Carbon and $20\\%$ Hydrogen by mass? ($C = 12, H = 1$)',
-      opts: ['$CH_3$', '$CH_2$', '$CH_4$', '$C_2H_6$'],
+      q: 'Solve for $x$ in the equation $2x^2 - 7x + 3 = 0$.',
+      opts: ['$x = 3$ or $x = \\frac{1}{2}$', '$x = -3$ or $x = -\\frac{1}{2}$', '$x = 2$ or $x = \\frac{3}{2}$', '$x = 1$ or $x = 6$'],
       correct: 0,
-      exp: 'Moles of $C = \\frac{80}{12} = 6.67$, Moles of $H = \\frac{20}{1} = 20$. Ratio $= \\frac{20}{6.67} = 3 \\implies CH_3$.',
-      comment: 'Fundamental GCE Chemistry stoichiometry calculation.'
+      exp: 'Factoring gives $(2x - 1)(x - 3) = 0 \\implies x = 3$ or $x = 1/2$.',
+      comment: 'Quadratic equation factoring.'
     },
     {
-      q: 'In binary computer arithmetic, what is the decimal equivalent of the 8-bit binary number $(10010110)_2$?',
-      opts: ['150', '142', '166', '134'],
+      q: 'What is the value of $\\int_{0}^{\\pi} \\sin(x) \\, dx$?',
+      opts: ['$2$', '$0$', '$1$', '$-1$'],
       correct: 0,
-      exp: '$128 + 16 + 4 + 2 = 150$.',
-      comment: 'Cameroon GCE Computer Science Paper 1 fundamental arithmetic.'
-    },
-    {
-      q: 'What is the standard acceleration due to gravity ($g$) near the Earth\'s surface in Cameroon GCE Physics calculations?',
-      opts: ['$9.8\\text{ m/s}^2$ (or $10\\text{ m/s}^2$)', '$8.9\\text{ m/s}^2$', '$100\\text{ m/s}^2$', '$4.9\\text{ m/s}^2$'],
-      correct: 0,
-      exp: 'Standard gravitational acceleration is $9.8\\text{ m/s}^2$ (or $10\\text{ m/s}^2$ for approximate O/L calculations).',
-      comment: 'Standard constant in Cameroon physics examinations.'
+      exp: '$[-\\cos(x)]_{0}^{\\pi} = -\\cos(\\pi) - (-\\cos(0)) = -(-1) + 1 = 2$.',
+      comment: 'Standard definite trigonometric integration.'
     }
   ];
 
-  const activePool = isSTEM ? cmSTEMPool : (isHistory ? cmHistoryPool : [...cmHistoryPool, ...cmSTEMPool]);
-  const questions: QuizQuestion[] = [];
+  const techPool = [
+    {
+      q: 'What is the average time complexity of searching in a balanced Binary Search Tree (such as an AVL or Red-Black Tree)?',
+      opts: ['$O(\\log n)$', '$O(n)$', '$O(1)$', '$O(n \\log n)$'],
+      correct: 0,
+      exp: 'A balanced BST maintains height $h = O(\\log n)$, ensuring $O(\\log n)$ search, insert, and delete operations.',
+      comment: 'Fundamental algorithmic complexity.'
+    },
+    {
+      q: 'Which HTTP status code signifies that a requested resource was successfully created on the server?',
+      opts: ['201 Created', '200 OK', '204 No Content', '301 Moved Permanently'],
+      correct: 0,
+      exp: 'HTTP 201 Created indicates that the request has succeeded and led to the creation of a new resource.',
+      comment: 'RESTful API standard convention.'
+    },
+    {
+      q: 'In relational database theory, what does the ACID property "Isolation" ensure?',
+      opts: [
+        'Concurrent transactions execute without interfering with one another',
+        'All changes survive system failures permanently',
+        'Transactions execute completely or not at all',
+        'Data transitions only from one valid state to another'
+      ],
+      correct: 0,
+      exp: 'Isolation ensures that concurrent transactions occur independently without cross-transaction contamination.',
+      comment: 'Core database transaction management principle.'
+    },
+    {
+      q: 'In modern cryptography, which algorithm is based on the mathematical difficulty of factoring large composite integers?',
+      opts: ['RSA', 'AES-256', 'SHA-256', 'Diffie-Hellman on Elliptic Curves'],
+      correct: 0,
+      exp: 'RSA asymmetric encryption relies on the computational hardness of the prime factorization problem.',
+      comment: 'Cornerstone of public-key cryptography.'
+    }
+  ];
 
+  const sciencePool = [
+    {
+      q: 'According to Newton\'s Second Law of Motion, what is the net force acting on an object of mass $5\\text{ kg}$ accelerating at $4\\text{ m/s}^2$?',
+      opts: ['$20\\text{ N}$', '$1.25\\text{ N}$', '$9\\text{ N}$', '$0.8\\text{ N}$'],
+      correct: 0,
+      exp: '$F = ma = 5\\text{ kg} \\times 4\\text{ m/s}^2 = 20\\text{ N}$.',
+      comment: 'Classical mechanics fundamental calculation.'
+    },
+    {
+      q: 'Which subatomic particles are found in the nucleus of an atom?',
+      opts: ['Protons and Neutrons', 'Protons and Electrons', 'Electrons and Neutrons', 'Positrons and Photons'],
+      correct: 0,
+      exp: 'The atomic nucleus consists of nucleons: positively charged protons and neutral neutrons, bound by the strong nuclear force.',
+      comment: 'Atomic physics and chemistry foundation.'
+    },
+    {
+      q: 'What is the chemical formula for sulfuric acid?',
+      opts: ['$H_2SO_4$', '$HCl$', '$HNO_3$', '$H_2SO_3$'],
+      correct: 0,
+      exp: 'Sulfuric acid is a strong diprotic mineral acid with formula $H_2SO_4$.',
+      comment: 'Inorganic chemistry standard nomenclature.'
+    },
+    {
+      q: 'Which cellular organelle is responsible for generating the majority of chemical energy in the form of ATP via aerobic respiration?',
+      opts: ['Mitochondrion', 'Ribosome', 'Golgi Apparatus', 'Endoplasmic Reticulum'],
+      correct: 0,
+      exp: 'Mitochondria produce ATP through the Krebs cycle and oxidative phosphorylation on their inner cristae.',
+      comment: 'Cellular biology powerhouse.'
+    }
+  ];
+
+  const worldHistoryPool = [
+    {
+      q: 'In which year did the Second World War officially end following the surrender of Axis forces?',
+      opts: ['1945', '1939', '1918', '1950'],
+      correct: 0,
+      exp: 'World War II concluded in 1945 with the defeat of Germany in May (V-E Day) and Japan in September (V-J Day).',
+      comment: 'Crucial turning point in modern world history.'
+    },
+    {
+      q: 'Which international treaty signed in 1919 officially concluded the state of war between Germany and the Allied Powers after World War I?',
+      opts: ['Treaty of Versailles', 'Treaty of Westphalia', 'Treaty of Paris', 'Treaty of Utrecht'],
+      correct: 0,
+      exp: 'The Treaty of Versailles was signed on June 28, 1919, establishing the League of Nations and post-WWI borders.',
+      comment: '20th century geopolitical foundation.'
+    },
+    {
+      q: 'What ancient civilization constructed the architectural marvel known as Machu Picchu in the Andes mountains?',
+      opts: ['Inca Empire', 'Maya Civilization', 'Aztec Empire', 'Olmec Civilization'],
+      correct: 0,
+      exp: 'Machu Picchu was built in the 15th century by the Inca Empire under Emperor Pachacuti.',
+      comment: 'Pre-Columbian architectural legacy.'
+    },
+    {
+      q: 'Who was the primary author of the United States Declaration of Independence adopted in 1776?',
+      opts: ['Thomas Jefferson', 'George Washington', 'Benjamin Franklin', 'Alexander Hamilton'],
+      correct: 0,
+      exp: 'Thomas Jefferson drafted the Declaration of Independence, which was adopted by the Second Continental Congress on July 4, 1776.',
+      comment: 'Enlightenment political philosophy milestone.'
+    }
+  ];
+
+  const cameroonPool = [
+    {
+      q: 'On what exact date was the Germano-Douala Treaty signed between Gustav Nachtigal and the Duala Kings (King Bell and King Akwa)?',
+      opts: ['July 12, 1884', 'January 1, 1960', 'October 1, 1961', 'May 20, 1972'],
+      correct: 0,
+      exp: 'The Germano-Douala Treaty was signed on July 12, 1884, establishing the German Protectorate of Kamerun.',
+      comment: 'Foundational date in Cameroonian colonial history.'
+    },
+    {
+      q: 'Which conference held in July 1961 agreed upon the Federal Constitution for the reunification of Cameroon?',
+      opts: ['Foumban Constitutional Conference', 'Mamfe Plebiscite Conference', 'Yaounde Accords', 'Bamenda Conference'],
+      correct: 0,
+      exp: 'The Foumban Conference (July 17–21, 1961) led by Ahidjo and Foncha established the Federal Republic.',
+      comment: 'Foundational moment of the October 1, 1961 Reunification.'
+    },
+    {
+      q: 'What is the highest mountain peak in Cameroon, standing at an elevation of 4,095 meters?',
+      opts: ['Mount Cameroon (Mount Fako)', 'Mount Manengouba', 'Mount Oku', 'Mount Kupe'],
+      correct: 0,
+      exp: 'Mount Cameroon (Fako) is an active volcano and the highest point in West and Central Africa at 4,095 meters.',
+      comment: 'Cameroon geographical landmark.'
+    }
+  ];
+
+  let selectedPool = techPool;
+  let categoryName = 'General Knowledge & Sciences';
+
+  if (lower.includes('math') || lower.includes('calc') || lower.includes('algebra') || lower.includes('geometry')) {
+    selectedPool = mathPool;
+    categoryName = 'Mathematics & Calculus';
+  } else if (lower.includes('code') || lower.includes('js') || lower.includes('program') || lower.includes('web') || lower.includes('comput') || lower.includes('tech') || lower.includes('ai')) {
+    selectedPool = techPool;
+    categoryName = 'Computer Science & Technology';
+  } else if (lower.includes('hist') || lower.includes('war') || lower.includes('empire') || lower.includes('revolution')) {
+    selectedPool = worldHistoryPool;
+    categoryName = 'World History & Civilizations';
+  } else if (lower.includes('physic') || lower.includes('chem') || lower.includes('bio') || lower.includes('sci')) {
+    selectedPool = sciencePool;
+    categoryName = 'Physical & Natural Sciences';
+  } else if (lower.includes('cameroon') || lower.includes('concours') || lower.includes('africa')) {
+    selectedPool = cameroonPool;
+    categoryName = 'Cameroon History & Concours';
+  } else {
+    // Balanced mix of science, tech, math, and history
+    selectedPool = [...sciencePool, ...techPool, ...mathPool, ...worldHistoryPool];
+    categoryName = 'General Knowledge & Sciences';
+  }
+
+  const questions: QuizQuestion[] = [];
   const targetCount = Math.max(1, Math.min(count, 50));
+
   for (let i = 0; i < targetCount; i++) {
-    const item = activePool[i % activePool.length];
+    const item = selectedPool[i % selectedPool.length];
     questions.push({
-      id: `cm-smart-q-${i + 1}-${Date.now()}`,
+      id: `smart-q-${i + 1}-${Date.now()}`,
       question: item.q,
       options: item.opts,
       correctIndex: item.correct,
@@ -411,14 +560,13 @@ function generateSmartMockQuiz(topic: string, count: number, difficulty: 'easy' 
   }
 
   return {
-    id: `cm-smart-quiz-${Date.now()}`,
-    title: `${topic} Examination Arena`,
-    description: `A rigorous Cameroon curriculum and Concours assessment with ${targetCount} verified questions.`,
-    category: isSTEM ? 'Cameroon GCE Sciences' : 'Cameroon History & Concours',
+    id: `smart-quiz-${Date.now()}`,
+    title: `${topic} Arena Challenge`,
+    description: `A rigorous assessment on "${topic}" with ${targetCount} verified questions.`,
+    category: categoryName,
     difficulty,
     topic,
     questions,
     createdAt: new Date().toISOString()
   };
 }
-

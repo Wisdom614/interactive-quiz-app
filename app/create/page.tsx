@@ -16,14 +16,14 @@ import { generateExternalAIPrompt, parseImportedQuizJson } from '@/lib/ai/import
 import { ArenaLoader } from '@/components/ArenaLoader';
 
 const POPULAR_SUGGESTIONS = [
+  'Calculus & Pure Mathematics',
+  'JavaScript & Web Systems',
+  'World History & Civilizations',
+  'Organic Chemistry & Thermodynamics',
+  'Computer Networks & Algorithms',
+  'Quantum Physics & Mechanics',
   'Cameroon History & Concours (1884–Present)',
-  'Cameroon GCE O/L & A/L Mathematics',
-  'Cameroon Geography, Regions & Agro-Industry',
-  'Cameroon Concours (Culture Générale & Institutions)',
-  'Cameroon Civics & Constitution of Cameroon',
-  'Cameroon GCE Physics & Chemistry',
-  'Cameroon Football (Indomitable Lions) & Culture',
-  'Computer Science & ICT (GCE Syllabus)',
+  'World Geography & Earth Sciences',
 ];
 
 const EXTERNAL_MODELS = [
@@ -45,7 +45,7 @@ function QuizCreateContent() {
   const [activeMode, setActiveMode] = useState<CreationMode>('DIRECT_AI');
 
   // Common Parameters
-  const [topic, setTopic] = useState(initialTopic || 'Cameroon History & Concours (1884–Present)');
+  const [topic, setTopic] = useState(initialTopic || 'Calculus & Pure Mathematics');
   const [questionCount, setQuestionCount] = useState<number>(5);
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard' | 'chaotic'>('medium');
   const [tone, setTone] = useState<'scholarly' | 'humorous' | 'sarcastic' | 'energetic'>('scholarly');
@@ -72,7 +72,7 @@ function QuizCreateContent() {
   // Auto-generate prompt preview for external AI models
   const externalAIPrompt = useMemo(() => {
     return generateExternalAIPrompt({
-      topic: topic.trim() || 'Cameroon General Knowledge & Sciences',
+      topic: topic.trim() || 'Calculus & Pure Mathematics',
       questionCount,
       difficulty,
       tone,
@@ -114,28 +114,28 @@ function QuizCreateContent() {
     sound.playClick();
     const sample = JSON.stringify(
       {
-        title: "Cameroon History & Constitutional Evolution",
-        description: "National treaties, reunification, and constitutional milestones",
-        category: "Cameroon History",
+        title: "Calculus & Pure Mathematics",
+        description: "Derivatives, integrals, and limits assessment",
+        category: "Mathematics",
         difficulty: "medium",
         questions: [
           {
-            question: "On what exact date was the Germano-Douala Treaty signed between Gustav Nachtigal and the Duala Kings?",
-            options: ["July 12, 1884", "January 1, 1960", "October 1, 1961", "May 20, 1972"],
+            question: "What is the derivative $\\frac{dy}{dx}$ of $y = 3x^4 - 5x^2 + 8x - 12$?",
+            options: ["$12x^3 - 10x + 8$", "$12x^3 - 5x + 8$", "$3x^3 - 10x$", "$7x^3 - 10x + 8$"],
             correctIndex: 0,
             timeLimit: 15,
             points: 1000,
-            explanation: "The Germano-Douala Treaty was signed on July 12, 1884, establishing the German Protectorate of Kamerun.",
-            aiHostComment: "Key colonial history milestone in the Cameroon GCE syllabus."
+            explanation: "Applying the power rule $\\frac{d}{dx}[x^n] = n x^{n-1}$ term-by-term yields $12x^3 - 10x + 8$.",
+            aiHostComment: "Standard polynomial derivative."
           },
           {
-            question: "Which conference held in July 1961 agreed upon the Federal Constitution for the reunification of Cameroon?",
-            options: ["Foumban Constitutional Conference", "Mamfe Plebiscite Conference", "Yaounde Accords", "Bamenda Conference"],
+            question: "Evaluate the definite integral $\\int_{0}^{2} (3x^2 - 2x + 1) \\, dx$.",
+            options: ["$6$", "$8$", "$4$", "$10$"],
             correctIndex: 0,
-            timeLimit: 15,
+            timeLimit: 20,
             points: 1000,
-            explanation: "The Foumban Conference (July 17–21, 1961) led by Ahidjo and Foncha established the Federal Republic.",
-            aiHostComment: "Foundational moment of the October 1, 1961 Reunification."
+            explanation: "Antiderivative is $F(x) = x^3 - x^2 + x$. $F(2) - F(0) = (8 - 4 + 2) - 0 = 6$.",
+            aiHostComment: "Fundamental theorem of calculus applied cleanly."
           }
         ]
       },

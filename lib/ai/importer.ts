@@ -15,42 +15,38 @@ export interface PromptTemplateOptions {
  */
 export function generateExternalAIPrompt(opts: PromptTemplateOptions): string {
   const customPart = opts.customInstructions?.trim()
-    ? `\nADDITIONAL INSTRUCTIONS / RECOMMENDATIONS:\n${opts.customInstructions.trim()}\n`
+    ? `\nADDITIONAL USER INSTRUCTIONS:\n${opts.customInstructions.trim()}\n`
     : '';
 
   const timeLimit = opts.timePerQuestion || 15;
 
-  return `Generate EXACTLY ${opts.questionCount} multiple-choice examination questions on the topic: "${opts.topic.trim() || 'Cameroon General Knowledge & Sciences'}".
+  return `Generate EXACTLY ${opts.questionCount} multiple-choice trivia and academic questions on the topic: "${opts.topic.trim() || 'General Knowledge'}".
 Difficulty level: ${opts.difficulty}
 Tone: ${opts.tone}${customPart}
 
-CURRICULUM & QUESTION-SETTING DIRECTIVES (CAMEROON EXAMINATION STYLE):
-1. ACCURACY & PEDAGOGY: Follow the Cameroon GCE Board (Ordinary Level / Advanced Level) and Cameroonian National Concours (ENAM, ENS, Polytech, FHS, CUSS, ENSET, IRIC) standards.
-2. LOCAL & NATIONAL CONTEXT: If covering History, Geography, Civics, Economics, Law, Culture, or General Knowledge:
-   - Ground facts in authentic Cameroonian institutions (10 Regions, Constitution, Presidency, National Assembly, Senate, Supreme Court).
-   - Use authentic Cameroon history (1884 Germano-Douala Treaty, 1916 partition, UPC Ruben Um Nyobe, 1 Jan 1960 Independence, July 1961 Foumban Conference, 1 Oct 1961 Reunification, 20 May 1972 Unitary State).
-   - Geography & Economy (Mount Fako 4095m, Sanaga River, Lake Nyos, Waza Park, CDC, Pamol, Sodecoton, FCFA / XAF currency).
-   - Sports & Culture (Indomitable Lions, 5 AFCONs, Makossa, Bikutsi, official bilingualism: English/French).
-3. EXACT QUESTION COUNT: Return EXACTLY ${opts.questionCount} questions in the "questions" array.
-4. FORMULAS & LATEX: For any math or science formulas, equations, or chemical symbols, ALWAYS format with standard LaTeX in single dollar signs $...$ (e.g. "$2x^2 - 7x + 3 = 0$", "$\\frac{dy}{dx}$", "$E = mc^2$", "$CH_4$").
-5. OPTIONS: Exactly 4 plausible options per question without option prefixes (no "A)", "B.", or "Option 1" in strings).
-6. "correctIndex" must be 0, 1, 2, or 3. No unicode emojis. Return ONLY valid JSON.
+CRITICAL QUALITY & FORMATTING RULES:
+1. TOPIC ACCURACY: Generate real, concrete, factually accurate questions specifically about "${opts.topic.trim()}". Ensure questions are easy to interpret, educational, and meaningful.
+2. EXACT COUNT: You must generate EXACTLY ${opts.questionCount} questions in the "questions" array.
+3. MATHEMATICS & FORMULAS: For any math, physics, engineering, or chemistry formulas, equations, or scientific symbols, ALWAYS format them using standard LaTeX enclosed in single dollar signs $...$ (e.g. "$f(x) = 3x^2 + 8x - 5$", "$\\frac{dy}{dx}$", "$E = mc^2$", "$CH_4$").
+4. 4 REAL OPTIONS: Ensure each question has EXACTLY 4 distinct, plausible answer strings in the "options" array. Do not put option labels like "A)" or "Option 1" inside the strings.
+5. "correctIndex" must be an integer (0 for option 1, 1 for option 2, 2 for option 3, 3 for option 4).
+6. No unicode emojis in questions or options. Return ONLY valid JSON matching the schema below.
 
 SCHEMA:
 {
-  "title": "Authoritative title (e.g. Cameroon GCE A/L Mathematics / Cameroon History)",
-  "description": "1-sentence synopsis of the curriculum scope",
-  "category": "Cameroon Academic & Concours",
+  "title": "Clear, concise quiz title",
+  "description": "1-sentence synopsis of the quiz",
+  "category": "Domain of the topic (e.g. Science, Mathematics, Technology, History, Geography, Pop Culture)",
   "difficulty": "${opts.difficulty}",
   "questions": [
     {
-      "question": "Clear, syllabus-grounded question stem (use $...$ for math)",
+      "question": "Clear, unambiguous question text (use $...$ for math)",
       "options": ["First option value", "Second option value", "Third option value", "Fourth option value"],
       "correctIndex": 0,
       "timeLimit": ${timeLimit},
       "points": 1000,
-      "explanation": "1-2 sentence verified factual proof (use $...$ for math)",
-      "aiHostComment": "Analytical remark grounded in the subject matter"
+      "explanation": "1-2 sentence verified factual explanation or proof (use $...$ for math)",
+      "aiHostComment": "A sharp, insightful analytical remark (no emojis)"
     }
   ]
 }`;

@@ -87,10 +87,10 @@ export default function HomePage() {
   };
 
   const presetTopics = [
-    { title: 'Cameroon History & Concours', icon: Globe, prompt: 'Cameroon History & Constitutional Milestones (1884 to Present, Treaties & Governance)', category: 'History', color: 'text-zinc-950' },
-    { title: 'Cameroon GCE Mathematics', icon: Calculator, prompt: 'Cameroon GCE O/L & A/L Mathematics (Algebra, Calculus, Geometry & Mechanics)', category: 'Math', color: 'text-zinc-950' },
-    { title: 'Cameroon Geography & Economy', icon: Activity, prompt: 'Cameroon Geography, 10 Regions, Agro-Industry, Resources & Climate', category: 'Geography', color: 'text-zinc-950' },
-    { title: 'Concours & General Knowledge', icon: BrainCircuit, prompt: 'Cameroon National Concours, Civics, Constitution & Culture Générale', category: 'Concours', color: 'text-zinc-950' },
+    { title: 'Calculus & Pure Math', icon: Calculator, prompt: 'Calculus, Derivatives, Definite Integrals, Limits & Series', category: 'Math', color: 'text-zinc-950' },
+    { title: 'Web & Computer Science', icon: Terminal, prompt: 'JavaScript Event Loop, Data Structures, Algorithms & Networking', category: 'Tech', color: 'text-zinc-950' },
+    { title: 'World History & Empires', icon: Globe, prompt: 'World History, Major Treaties, Revolutions & Global Milestones', category: 'History', color: 'text-zinc-950' },
+    { title: 'Cameroon & African Studies', icon: BrainCircuit, prompt: 'Cameroon History, Constitution, National Concours & Geography', category: 'Heritage', color: 'text-zinc-950' },
   ];
 
   return (
