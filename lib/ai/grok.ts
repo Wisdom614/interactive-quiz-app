@@ -326,14 +326,14 @@ Ensure all questions are concrete, meaningful, factually accurate, and strictly 
     if (!response.ok) {
       const errBody = await response.text();
       console.error(`[Kinetic AI] ${isGroq ? 'Groq' : 'xAI'} API call failed with status ${response.status}:`, errBody);
-      return generateSmartMockQuiz(topic, count, difficulty);
+      return generateSmartMockQuiz(topic, count, difficulty, timeLimit);
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
     if (!content) {
       console.warn('[Kinetic AI] Empty content in AI response choices.');
-      return generateSmartMockQuiz(topic, count, difficulty);
+      return generateSmartMockQuiz(topic, count, difficulty, timeLimit);
     }
 
     const parsed = JSON.parse(content);
@@ -371,7 +371,7 @@ Ensure all questions are concrete, meaningful, factually accurate, and strictly 
     };
   } catch (error) {
     console.error(`[Kinetic AI] Exception while calling ${isGroq ? 'Groq' : 'xAI'} API:`, error);
-    return generateSmartMockQuiz(topic, count, difficulty);
+    return generateSmartMockQuiz(topic, count, difficulty, timeLimit);
   }
 }
 
