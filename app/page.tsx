@@ -9,7 +9,6 @@ import {
 } from 'lucide-react';
 import { AvatarSelector } from '@/components/AvatarSelector';
 import { VECTOR_AVATARS } from '@/components/VectorAvatar';
-import { PendingGamesFeed } from '@/components/PendingGamesFeed';
 import { sound } from '@/lib/audio/soundEngine';
 import { lookupRoomState } from '@/lib/store/gameStore';
 
@@ -88,9 +87,6 @@ export default function HomePage() {
       <p className="text-xs sm:text-sm font-mono text-zinc-600 text-center max-w-2xl mb-8 leading-relaxed font-medium">
         Create instant quizzes on any topic, host live games on a big screen, and let players join from their phones with a PIN code.
       </p>
-
-      {/* Public / Scheduled Games Discovery Feed */}
-      <PendingGamesFeed />
 
       {/* Core Split Grid */}
       <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-start mb-14">
