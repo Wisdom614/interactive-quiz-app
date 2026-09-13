@@ -6,7 +6,7 @@ import {
   Sparkles, Play, Plus, Trash2, Check, BrainCircuit, RefreshCw,
   ArrowLeft, Sliders, Layers, HelpCircle, CheckCircle2, Clock, Users,
   Copy, FileText, Bot, Edit3, ArrowRight, AlertCircle, CheckCheck,
-  Code2, ExternalLink
+  Code2, ExternalLink, ClipboardPaste, Lightbulb, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { Quiz, QuizQuestion } from '@/types/quiz';
 import { sound } from '@/lib/audio/soundEngine';
@@ -24,6 +24,44 @@ const POPULAR_SUGGESTIONS = [
   'Chemistry & Molecular Formulas',
 ];
 
+const EXTERNAL_MODELS = [
+  {
+    name: 'ChatGPT',
+    provider: 'OpenAI (GPT-4o)',
+    url: 'https://chatgpt.com',
+    color: 'bg-emerald-50 border-emerald-900 text-emerald-950 hover:bg-emerald-100',
+    badge: 'ChatGPT',
+  },
+  {
+    name: 'Claude',
+    provider: 'Anthropic (Claude 3.5)',
+    url: 'https://claude.ai',
+    color: 'bg-purple-50 border-purple-900 text-purple-950 hover:bg-purple-100',
+    badge: 'Claude',
+  },
+  {
+    name: 'DeepSeek',
+    provider: 'DeepSeek (R1 / V3)',
+    url: 'https://chat.deepseek.com',
+    color: 'bg-blue-50 border-blue-900 text-blue-950 hover:bg-blue-100',
+    badge: 'DeepSeek',
+  },
+  {
+    name: 'Grok',
+    provider: 'xAI (Grok 2)',
+    url: 'https://grok.com',
+    color: 'bg-zinc-100 border-zinc-900 text-zinc-950 hover:bg-zinc-200',
+    badge: 'Grok',
+  },
+  {
+    name: 'Gemini',
+    provider: 'Google (Gemini 1.5 Pro)',
+    url: 'https://gemini.google.com',
+    color: 'bg-amber-50 border-amber-900 text-amber-950 hover:bg-amber-100',
+    badge: 'Gemini',
+  },
+];
+
 type CreationMode = 'PROMPT_IMPORT' | 'MANUAL' | 'DIRECT_AI';
 
 function QuizCreateContent() {
@@ -35,7 +73,7 @@ function QuizCreateContent() {
   const [activeMode, setActiveMode] = useState<CreationMode>('PROMPT_IMPORT');
 
   // Common Parameters
-  const [topic, setTopic] = useState(initialTopic || 'Advanced Mathematics & Science');
+  const [topic, setTopic] = useState(initialTopic || 'Advanced Mathematics & Calculus');
   const [questionCount, setQuestionCount] = useState<number>(5);
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard' | 'chaotic'>('medium');
   const [tone, setTone] = useState<'scholarly' | 'humorous' | 'sarcastic' | 'energetic'>('scholarly');
@@ -46,6 +84,7 @@ function QuizCreateContent() {
   const [rawImportText, setRawImportText] = useState('');
   const [importError, setImportError] = useState('');
   const [importSuccess, setImportSuccess] = useState('');
+  const [showFormatPreview, setShowFormatPreview] = useState(false);
 
   // Mode 3: Direct In-App Generation States
   const [isGenerating, setIsGenerating] = useState(false);
@@ -81,6 +120,68 @@ function QuizCreateContent() {
     navigator.clipboard.writeText(externalAIPrompt);
     setCopiedPrompt(true);
     setTimeout(() => setCopiedPrompt(false), 3000);
+  };
+
+  // Handle Paste from Clipboard
+  const handlePasteFromClipboard = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        setRawImportText(text);
+        sound.playClick();
+        setImportError('');
+      }
+    } catch {
+      // Fallback
+      setImportError('Could not access clipboard automatically. Please paste using Ctrl+V or long-press.');
+    }
+  };
+
+  // Handle Load Sample JSON
+  const handleLoadSample = () => {
+    sound.playClick();
+    const sample = JSON.stringify(
+      {
+        title: "Calculus & Mathematical Physics",
+        description: "Derivatives, integrals, and physical formulas",
+        category: "Mathematics",
+        difficulty: "medium",
+        questions: [
+          {
+            question: "What is the derivative of $f(x) = x^3 - 4x + 7$ with respect to $x$?",
+            options: ["$3x^2 - 4$", "$3x^2 + 4$", "$x^2 - 4$", "$3x - 4$"],
+            correctIndex: 0,
+            timeLimit: 15,
+            points: 1000,
+            explanation: "Applying the power rule: $\\frac{d}{dx}[x^3] = 3x^2$ and $\\frac{d}{dx}[-4x] = -4$.",
+            aiHostComment: "Classic calculus foundation verified."
+          },
+          {
+            question: "Evaluate the definite integral $\\int_0^2 2x\\,dx$:",
+            options: ["$4$", "$2$", "$8$", "$1$"],
+            correctIndex: 0,
+            timeLimit: 15,
+            points: 1000,
+            explanation: "The antiderivative is $x^2$. Evaluated from 0 to 2 gives $2^2 - 0 = 4$.",
+            aiHostComment: "Fundamental Theorem of Calculus applied cleanly."
+          },
+          {
+            question: "Which equation represents Euler's identity linking five fundamental constants?",
+            options: ["$e^{i\\pi} + 1 = 0$", "$E = mc^2$", "$a^2 + b^2 = c^2$", "$F = ma$"],
+            correctIndex: 0,
+            timeLimit: 15,
+            points: 1000,
+            explanation: "Euler's identity unites $e$, $i$, $\\pi$, $1$, and $0$ in a single profound relation.",
+            aiHostComment: "Widely regarded as the most elegant equation in mathematics."
+          }
+        ]
+      },
+      null,
+      2
+    );
+    setRawImportText(sample);
+    setImportError('');
+    setImportSuccess('Sample quiz loaded! Click "Parse & Load Quiz Questions" below.');
   };
 
   // Handle Importing Pasted AI Output
@@ -253,11 +354,11 @@ function QuizCreateContent() {
                 Studio
               </span>
               <h1 className="text-base sm:text-lg font-mono font-black uppercase text-zinc-950 tracking-tight">
-                Quiz Creator & Prompt Importer
+                Quiz Creator & AI Prompt Hub
               </h1>
             </div>
             <p className="text-[10px] sm:text-xs font-mono text-zinc-500">
-              Generate AI prompts, import JSON from any model, or build manually
+              Copy prompt &rarr; Paste into ChatGPT/Claude &rarr; Import results instantly
             </p>
           </div>
         </div>
@@ -302,7 +403,7 @@ function QuizCreateContent() {
             <span>AI Prompt & Importer</span>
           </div>
           <span className="text-[10px] font-mono text-zinc-500">
-            Generate prompt for ChatGPT, Claude, DeepSeek, Grok & paste result
+            Copy pre-formatted prompt for ChatGPT, Claude, DeepSeek & paste result
           </span>
         </button>
 
@@ -323,7 +424,7 @@ function QuizCreateContent() {
             <span>Manual Question Builder</span>
           </div>
           <span className="text-[10px] font-mono text-zinc-500">
-            Type your own questions and choices step-by-step
+            Handcraft questions and choices step-by-step
           </span>
         </button>
 
@@ -344,7 +445,7 @@ function QuizCreateContent() {
             <span>Direct In-App AI</span>
           </div>
           <span className="text-[10px] font-mono text-zinc-500">
-            1-Click automated generation via connected AI API
+            1-Click automated generation via backend API
           </span>
         </button>
       </div>
@@ -353,15 +454,45 @@ function QuizCreateContent() {
       {/* 1. MODE: AI PROMPT GENERATOR & SMART JSON IMPORTER           */}
       {/* ============================================================ */}
       {activeMode === 'PROMPT_IMPORT' && (
-        <div className="bg-white border-2 border-zinc-900 p-4 sm:p-6 shadow-sm rounded-none flex flex-col gap-5">
+        <div className="bg-white border-2 border-zinc-900 p-4 sm:p-6 shadow-sm rounded-none flex flex-col gap-6">
           
-          <div className="pb-3 border-b-2 border-zinc-900">
-            <h2 className="text-sm font-mono font-black uppercase text-zinc-950 tracking-tight">
-              External AI Prompt & Instant Importer
-            </h2>
-            <p className="text-xs font-mono text-zinc-600 mt-0.5">
-              Copy the prompt below &rarr; Paste into any AI model (ChatGPT, Claude, DeepSeek, Grok, Gemini) &rarr; Paste the output back here.
-            </p>
+          {/* Header & Step-by-Step Flow Infographic */}
+          <div className="flex flex-col gap-3 pb-3 border-b-2 border-zinc-900">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm sm:text-base font-mono font-black uppercase text-zinc-950 tracking-tight">
+                How It Works: 3 Simple Steps
+              </h2>
+              <span className="text-[9px] font-mono font-bold px-2 py-0.5 bg-blue-100 border border-blue-900 text-blue-950 uppercase">
+                Works with any AI model
+              </span>
+            </div>
+
+            {/* 3 Step Visual Pipeline */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+              <div className="p-2.5 bg-zinc-50 border border-zinc-900 flex items-start gap-2">
+                <span className="w-5 h-5 bg-blue-600 text-white font-mono text-[10px] font-bold flex items-center justify-center flex-shrink-0">1</span>
+                <div>
+                  <span className="text-[11px] font-mono font-bold text-zinc-950 uppercase block">Copy AI Prompt</span>
+                  <span className="text-[10px] font-mono text-zinc-500 block">Configure topic & click Copy Prompt below</span>
+                </div>
+              </div>
+
+              <div className="p-2.5 bg-zinc-50 border border-zinc-900 flex items-start gap-2">
+                <span className="w-5 h-5 bg-purple-600 text-white font-mono text-[10px] font-bold flex items-center justify-center flex-shrink-0">2</span>
+                <div>
+                  <span className="text-[11px] font-mono font-bold text-zinc-950 uppercase block">Paste into AI</span>
+                  <span className="text-[10px] font-mono text-zinc-500 block">Open ChatGPT/Claude, paste prompt & copy response</span>
+                </div>
+              </div>
+
+              <div className="p-2.5 bg-zinc-50 border border-zinc-900 flex items-start gap-2">
+                <span className="w-5 h-5 bg-emerald-600 text-white font-mono text-[10px] font-bold flex items-center justify-center flex-shrink-0">3</span>
+                <div>
+                  <span className="text-[11px] font-mono font-bold text-zinc-950 uppercase block">Import & Play</span>
+                  <span className="text-[10px] font-mono text-zinc-500 block">Paste AI response below & click Load Quiz</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Configuration Inputs */}
@@ -465,28 +596,34 @@ function QuizCreateContent() {
           </div>
 
           {/* STEP 1: Copy Prompt Box */}
-          <div className="flex flex-col gap-2 p-3.5 bg-zinc-50 border-2 border-zinc-900 rounded-none">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
+          <div className="flex flex-col gap-2 p-4 bg-zinc-50 border-2 border-zinc-900 rounded-none">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
                 <span className="w-5 h-5 bg-blue-600 text-white font-mono text-[10px] font-bold flex items-center justify-center">1</span>
-                <span className="text-xs font-mono font-bold uppercase text-zinc-950">
-                  Copy Generated AI Prompt
-                </span>
+                <div>
+                  <span className="text-xs font-mono font-bold uppercase text-zinc-950 block">
+                    Copy Generated AI Prompt
+                  </span>
+                  <span className="text-[10px] font-mono text-zinc-500 block">
+                    Contains full JSON formatting & LaTeX math instructions
+                  </span>
+                </div>
               </div>
+
               <button
                 type="button"
                 onClick={handleCopyPrompt}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-950 hover:bg-blue-600 text-white font-mono font-bold text-xs uppercase border border-zinc-900 rounded-none active:translate-y-0.5 transition-all"
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-zinc-950 hover:bg-blue-600 text-white font-mono font-bold text-xs uppercase border-2 border-zinc-900 rounded-none active:translate-y-0.5 transition-all shadow-none"
               >
                 {copiedPrompt ? (
                   <>
-                    <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Prompt Copied!</span>
+                    <CheckCheck className="w-4 h-4 text-emerald-400" />
+                    <span>Prompt Copied to Clipboard!</span>
                   </>
                 ) : (
                   <>
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Copy Prompt</span>
+                    <Copy className="w-4 h-4" />
+                    <span>Copy Prompt (Click Here)</span>
                   </>
                 )}
               </button>
@@ -496,18 +633,78 @@ function QuizCreateContent() {
               readOnly
               rows={4}
               value={externalAIPrompt}
-              className="w-full bg-white border border-zinc-900 p-2.5 text-[11px] font-mono text-zinc-800 outline-none select-all rounded-none resize-none leading-relaxed"
+              className="w-full bg-white border border-zinc-900 p-2.5 text-[11px] font-mono text-zinc-800 outline-none select-all rounded-none resize-none leading-relaxed mt-1"
             />
           </div>
 
-          {/* STEP 2: Paste Output & Import Box */}
-          <div className="flex flex-col gap-2 p-3.5 bg-zinc-50 border-2 border-zinc-900 rounded-none">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <span className="w-5 h-5 bg-emerald-600 text-white font-mono text-[10px] font-bold flex items-center justify-center">2</span>
-                <span className="text-xs font-mono font-bold uppercase text-zinc-950">
-                  Paste AI Response (JSON or Markdown)
+          {/* STEP 2: Quick Launch AI Models Bar */}
+          <div className="flex flex-col gap-2 p-3.5 bg-blue-50/60 border-2 border-blue-900 rounded-none">
+            <div className="flex items-center gap-2">
+              <span className="w-5 h-5 bg-purple-600 text-white font-mono text-[10px] font-bold flex items-center justify-center flex-shrink-0">2</span>
+              <div>
+                <span className="text-xs font-mono font-bold uppercase text-blue-950 block">
+                  Open Your Favorite AI Model in 1-Click
                 </span>
+                <span className="text-[10px] font-mono text-blue-900 block">
+                  Click any model below to open in a new tab, then press Ctrl+V to paste your prompt:
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mt-1">
+              {EXTERNAL_MODELS.map((m, idx) => (
+                <a
+                  key={idx}
+                  href={m.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => sound.playClick()}
+                  className={`flex flex-col items-center justify-center p-2.5 border-2 ${m.color} rounded-none active:translate-y-0.5 transition-all text-center group`}
+                  title={`Open ${m.name} in a new tab`}
+                >
+                  <div className="flex items-center gap-1 font-mono font-bold text-xs">
+                    <span>{m.name}</span>
+                    <ExternalLink className="w-3 h-3 opacity-60 group-hover:opacity-100" />
+                  </div>
+                  <span className="text-[9px] font-mono opacity-70 block mt-0.5">{m.provider}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+
+          {/* STEP 3: Paste Output & Import Box */}
+          <div className="flex flex-col gap-2.5 p-4 bg-zinc-50 border-2 border-zinc-900 rounded-none">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="w-5 h-5 bg-emerald-600 text-white font-mono text-[10px] font-bold flex items-center justify-center flex-shrink-0">3</span>
+                <div>
+                  <span className="text-xs font-mono font-bold uppercase text-zinc-950 block">
+                    Paste AI Response & Import
+                  </span>
+                  <span className="text-[10px] font-mono text-zinc-500 block">
+                    Paste raw JSON or Markdown output from the AI
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleLoadSample}
+                  className="px-2.5 py-1 bg-white hover:bg-zinc-100 border border-zinc-900 text-zinc-800 text-[10px] font-mono font-bold uppercase rounded-none transition-colors"
+                  title="Load a pre-configured sample quiz to test"
+                >
+                  Load Sample JSON
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handlePasteFromClipboard}
+                  className="flex items-center gap-1 px-2.5 py-1 bg-zinc-950 hover:bg-zinc-800 text-white text-[10px] font-mono font-bold uppercase border border-zinc-900 rounded-none transition-colors active:translate-y-0.5"
+                >
+                  <ClipboardPaste className="w-3 h-3" />
+                  <span>Paste Clipboard</span>
+                </button>
               </div>
             </div>
 
@@ -516,28 +713,35 @@ function QuizCreateContent() {
               placeholder="Paste the JSON response from ChatGPT / Claude / DeepSeek / Grok here..."
               value={rawImportText}
               onChange={(e) => setRawImportText(e.target.value)}
-              className="w-full bg-white border-2 border-zinc-900 p-3 text-xs font-mono text-zinc-950 outline-none rounded-none placeholder-zinc-400 font-medium"
+              className="w-full bg-white border-2 border-zinc-900 p-3 text-xs font-mono text-zinc-950 outline-none rounded-none placeholder-zinc-400 font-medium leading-relaxed"
             />
 
+            {/* Error / Success Feedback */}
             {importError && (
-              <div className="flex items-center gap-2 p-2 bg-rose-50 border border-rose-900 text-rose-900 text-xs font-mono font-bold">
-                <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-700" />
-                <span>{importError}</span>
+              <div className="flex items-start gap-2 p-2.5 bg-rose-50 border-2 border-rose-900 text-rose-900 text-xs font-mono font-bold">
+                <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-700 mt-0.5" />
+                <div className="flex-1">
+                  <span className="block">{importError}</span>
+                  <span className="text-[10px] text-rose-700 font-normal block mt-0.5">
+                    Tip: Make sure the AI returned valid JSON or click &quot;Load Sample JSON&quot; to test.
+                  </span>
+                </div>
               </div>
             )}
 
             {importSuccess && (
-              <div className="flex items-center gap-2 p-2 bg-emerald-50 border border-emerald-900 text-emerald-900 text-xs font-mono font-bold">
+              <div className="flex items-center gap-2 p-2.5 bg-emerald-50 border-2 border-emerald-900 text-emerald-900 text-xs font-mono font-bold">
                 <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-700" />
                 <span>{importSuccess}</span>
               </div>
             )}
 
+            {/* Main Action Button */}
             <button
               type="button"
               onClick={handleImportJson}
               disabled={!rawImportText.trim()}
-              className="w-full flex items-center justify-center gap-2 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-mono font-bold text-xs uppercase border-2 border-zinc-900 rounded-none active:translate-y-0.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-none"
+              className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-700 text-white font-mono font-bold text-xs uppercase border-2 border-zinc-900 rounded-none active:translate-y-0.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-none"
             >
               <FileText className="w-4 h-4" />
               <span>Parse & Load Quiz Questions</span>
@@ -690,7 +894,7 @@ function QuizCreateContent() {
                 </span>
                 <span className="text-xs font-mono text-zinc-600 font-bold">{currentQuiz.category}</span>
                 <span className="text-xs font-mono text-zinc-400">•</span>
-                <span className="text-xs font-mono text-emerald-700 font-bold">{currentQuiz.questions.length} Questions</span>
+                <span className="text-xs font-mono text-emerald-700 font-bold">{currentQuiz.questions.length} Questions Configured</span>
               </div>
               <h2 className="text-base sm:text-lg font-mono font-black text-zinc-950 mt-1 uppercase">
                 {currentQuiz.title}
@@ -800,7 +1004,7 @@ function QuizCreateContent() {
 
                 {/* Math Live Preview if contains LaTeX */}
                 {(q.question.includes('$') || q.question.includes('\\')) && (
-                  <div className="px-2 py-1 bg-zinc-50 border border-zinc-300 text-xs font-mono text-zinc-900">
+                  <div className="px-2.5 py-1.5 bg-zinc-50 border border-zinc-300 text-xs font-mono text-zinc-900">
                     <span className="text-[9px] font-bold text-zinc-500 uppercase block">Formula Render:</span>
                     <MathText text={q.question} />
                   </div>
