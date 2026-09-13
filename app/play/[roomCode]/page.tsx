@@ -227,12 +227,61 @@ function PlayGameContent() {
       const now = Date.now();
       const diff = Math.max(0, Math.ceil((room.scheduledStartAt! - now) / 1000));
       setAutoStartRemaining(diff);
+
+      if (now >= room.scheduledStartAt!) {
+        // Trigger immediate sync request to host & database
+        const manager = getRoomManager(roomCode);
+        manager.broadcast({
+          type: 'SYNC_REQUEST',
+          playerId,
+        });
+        manager.lookupRoomStateAsync().then((latestRoom) => {
+          if (latestRoom && latestRoom.status !== 'LOBBY') {
+            setRoom(latestRoom);
+          }
+        });
+      }
     };
 
     checkAutoStart();
     const interval = setInterval(checkAutoStart, 1000);
     return () => clearInterval(interval);
-  }, [room?.status, room?.scheduledStartAt]);
+  }, [room?.status, room?.scheduledStartAt, roomCode, playerId]);
+
+  // Active Game State Poller (Ensures mobile clients never miss round/question starts or answer reveals)
+  useEffect(() => {
+    if (!roomCode || !hasJoinedLobby) return;
+
+    const manager = getRoomManager(roomCode);
+    const syncGameState = async () => {
+      const dbRoom = await manager.lookupRoomStateAsync();
+      if (dbRoom) {
+        setRoom((prev) => {
+          if (!prev) return dbRoom;
+          // If status or question index advanced on host
+          if (
+            dbRoom.status !== prev.status ||
+            dbRoom.currentQuestionIndex !== prev.currentQuestionIndex ||
+            dbRoom.lastRevealedAnswer?.questionIndex !== prev.lastRevealedAnswer?.questionIndex
+          ) {
+            if (
+              (dbRoom.status === 'QUESTION' && prev.status !== 'QUESTION') ||
+              dbRoom.currentQuestionIndex !== prev.currentQuestionIndex
+            ) {
+              setSelectedOption(null);
+              setHasLockedIn(false);
+              setQuestionStartTime(dbRoom.questionStartedAt || Date.now());
+            }
+            return dbRoom;
+          }
+          return prev;
+        });
+      }
+    };
+
+    const interval = setInterval(syncGameState, 1500);
+    return () => clearInterval(interval);
+  }, [roomCode, hasJoinedLobby]);
 
   // Keyboard shortcut listener (1-4, A-D)
   useEffect(() => {
@@ -255,7 +304,18 @@ function PlayGameContent() {
 
   const handleEvent = (event: BroadcastEvent) => {
     if (event.type === 'ROOM_SYNC') {
-      setRoom(event.room);
+      setRoom((prev) => {
+        if (!prev) return event.room;
+        if (
+          (event.room.status === 'QUESTION' && prev.status !== 'QUESTION') ||
+          event.room.currentQuestionIndex !== prev.currentQuestionIndex
+        ) {
+          setSelectedOption(null);
+          setHasLockedIn(false);
+          setQuestionStartTime(event.room.questionStartedAt || Date.now());
+        }
+        return event.room;
+      });
       setIsNotFound(false);
       setIsLoading(false);
     } else if (event.type === 'PLAYER_JOINED') {
@@ -293,6 +353,15 @@ function PlayGameContent() {
       setSelectedOption(null);
       setHasLockedIn(false);
       setQuestionStartTime(event.startedAt || Date.now());
+      setRoom((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          status: 'QUESTION',
+          currentQuestionIndex: event.questionIndex,
+          questionStartedAt: event.startedAt,
+        };
+      });
     } else if (event.type === 'REVEAL_ANSWER') {
       setRoom((prev) => {
         if (!prev) return null;

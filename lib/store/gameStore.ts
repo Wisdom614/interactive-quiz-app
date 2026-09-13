@@ -37,6 +37,42 @@ export class GameRoomManager {
           .on('broadcast', { event: 'game_event' }, ({ payload }) => {
             this.notifyListeners(payload as BroadcastEvent);
           })
+          .on(
+            'postgres_changes',
+            { event: 'UPDATE', schema: 'public', table: 'quiz_rooms', filter: `room_code=eq.${this.roomCode}` },
+            (payload) => {
+              const newRow = payload.new as any;
+              if (newRow && newRow.room_code === this.roomCode) {
+                const parsedRoom: GameRoom = {
+                  id: newRow.id,
+                  roomCode: newRow.room_code,
+                  hostId: newRow.host_id,
+                  creatorId: newRow.creator_id,
+                  creatorName: newRow.creator_name,
+                  quiz: newRow.quiz,
+                  status: newRow.status,
+                  currentQuestionIndex: newRow.current_question_index || 0,
+                  questionStartedAt: newRow.question_started_at,
+                  scheduledStartAt: newRow.scheduled_start_at,
+                  isPublic: newRow.is_public !== false,
+                  maxCandidates: newRow.max_candidates,
+                  settings: newRow.settings || {
+                    timePerQuestion: 15,
+                    speedBonus: true,
+                    streakBonus: true,
+                    showExplanations: true,
+                    aiCommentaryEnabled: true,
+                  },
+                  players: newRow.players || {},
+                  lastRevealedAnswer: newRow.last_revealed_answer,
+                };
+                this.notifyListeners({
+                  type: 'ROOM_SYNC',
+                  room: parsedRoom,
+                });
+              }
+            }
+          )
           .subscribe((status) => {
             if (status === 'SUBSCRIBED') {
               this.isSupabaseSubscribed = true;

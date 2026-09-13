@@ -263,6 +263,10 @@ export default function HostGamePage() {
       startedAt,
       timeLimit: duration,
     });
+    manager.broadcast({
+      type: 'ROOM_SYNC',
+      room: updatedRoom,
+    });
 
     if (timerRef.current) clearInterval(timerRef.current);
     let remaining = duration;
@@ -322,6 +326,10 @@ export default function HostGamePage() {
       type: 'SCORES_UPDATED',
       players: updatedRoom.players,
     });
+    manager.broadcast({
+      type: 'ROOM_SYNC',
+      room: updatedRoom,
+    });
   };
 
   const showLeaderboard = () => {
@@ -342,6 +350,10 @@ export default function HostGamePage() {
       status: 'LEADERBOARD',
       currentQuestionIndex: room.currentQuestionIndex,
       timestamp: Date.now(),
+    });
+    manager.broadcast({
+      type: 'ROOM_SYNC',
+      room: updatedRoom,
     });
   };
 
@@ -371,6 +383,10 @@ export default function HostGamePage() {
       status: 'GAME_OVER',
       currentQuestionIndex: room.currentQuestionIndex,
       timestamp: Date.now(),
+    });
+    manager.broadcast({
+      type: 'ROOM_SYNC',
+      room: updatedRoom,
     });
   };
 
