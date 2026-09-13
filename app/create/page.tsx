@@ -4,9 +4,8 @@ import React, { useState, useEffect, Suspense, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Sparkles, Play, Plus, Trash2, Check, BrainCircuit, RefreshCw,
-  ArrowLeft, Sliders, Layers, HelpCircle, CheckCircle2, Clock, Users,
-  Copy, FileText, Bot, Edit3, ArrowRight, AlertCircle, CheckCheck,
-  Code2, ExternalLink, ClipboardPaste, Lightbulb, ChevronDown, ChevronUp
+  ArrowLeft, Clock, Users, Copy, FileText, Bot, Edit3, AlertCircle, CheckCheck,
+  ExternalLink, ClipboardPaste, CheckCircle2, ChevronRight
 } from 'lucide-react';
 import { Quiz, QuizQuestion } from '@/types/quiz';
 import { sound } from '@/lib/audio/soundEngine';
@@ -19,58 +18,28 @@ const POPULAR_SUGGESTIONS = [
   'Mathematics & Calculus',
   'Quantum Physics & Relativity',
   'Space & Astronomy',
-  'World History & Empires',
-  'JavaScript & Web Tech',
-  'Chemistry & Molecular Formulas',
+  'World History & Civilizations',
+  'JavaScript & Web Architecture',
+  'Organic Chemistry',
 ];
 
 const EXTERNAL_MODELS = [
-  {
-    name: 'ChatGPT',
-    provider: 'OpenAI (GPT-4o)',
-    url: 'https://chatgpt.com',
-    color: 'bg-emerald-50 border-emerald-900 text-emerald-950 hover:bg-emerald-100',
-    badge: 'ChatGPT',
-  },
-  {
-    name: 'Claude',
-    provider: 'Anthropic (Claude 3.5)',
-    url: 'https://claude.ai',
-    color: 'bg-purple-50 border-purple-900 text-purple-950 hover:bg-purple-100',
-    badge: 'Claude',
-  },
-  {
-    name: 'DeepSeek',
-    provider: 'DeepSeek (R1 / V3)',
-    url: 'https://chat.deepseek.com',
-    color: 'bg-blue-50 border-blue-900 text-blue-950 hover:bg-blue-100',
-    badge: 'DeepSeek',
-  },
-  {
-    name: 'Grok',
-    provider: 'xAI (Grok 2)',
-    url: 'https://grok.com',
-    color: 'bg-zinc-100 border-zinc-900 text-zinc-950 hover:bg-zinc-200',
-    badge: 'Grok',
-  },
-  {
-    name: 'Gemini',
-    provider: 'Google (Gemini 1.5 Pro)',
-    url: 'https://gemini.google.com',
-    color: 'bg-amber-50 border-amber-900 text-amber-950 hover:bg-amber-100',
-    badge: 'Gemini',
-  },
+  { name: 'ChatGPT', url: 'https://chatgpt.com', badge: 'GPT-4o' },
+  { name: 'Claude', url: 'https://claude.ai', badge: 'Claude 3.5' },
+  { name: 'DeepSeek', url: 'https://chat.deepseek.com', badge: 'R1 / V3' },
+  { name: 'Grok', url: 'https://grok.com', badge: 'Grok 2' },
+  { name: 'Gemini', url: 'https://gemini.google.com', badge: '1.5 Pro' },
 ];
 
-type CreationMode = 'PROMPT_IMPORT' | 'MANUAL' | 'DIRECT_AI';
+type CreationMode = 'DIRECT_AI' | 'PROMPT_IMPORT' | 'MANUAL';
 
 function QuizCreateContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialTopic = searchParams.get('topic') || '';
 
-  // Mode Selection
-  const [activeMode, setActiveMode] = useState<CreationMode>('PROMPT_IMPORT');
+  // Mode Selection (Default to Instant AI for fastest, cleanest onboarding)
+  const [activeMode, setActiveMode] = useState<CreationMode>('DIRECT_AI');
 
   // Common Parameters
   const [topic, setTopic] = useState(initialTopic || 'Advanced Mathematics & Calculus');
@@ -79,14 +48,13 @@ function QuizCreateContent() {
   const [tone, setTone] = useState<'scholarly' | 'humorous' | 'sarcastic' | 'energetic'>('scholarly');
   const [customInstructions, setCustomInstructions] = useState<string>('');
 
-  // Mode 1: Prompt & Import States
+  // Mode: Prompt & Import States
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [rawImportText, setRawImportText] = useState('');
   const [importError, setImportError] = useState('');
   const [importSuccess, setImportSuccess] = useState('');
-  const [showFormatPreview, setShowFormatPreview] = useState(false);
 
-  // Mode 3: Direct In-App Generation States
+  // Mode: Direct In-App Generation States
   const [isGenerating, setIsGenerating] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
 
@@ -94,10 +62,10 @@ function QuizCreateContent() {
   const [currentQuiz, setCurrentQuiz] = useState<Quiz | null>(null);
 
   // Host Launch Settings
-  const [autoStartDelay, setAutoStartDelay] = useState<number>(0); // 0 = manual, 60 = 1 min, 120 = 2 min, 300 = 5 min, 600 = 10 min
-  const [maxCandidates, setMaxCandidates] = useState<number | null>(null); // null = unlimited, 5, 10, 25, 50
+  const [autoStartDelay, setAutoStartDelay] = useState<number>(0); // 0 = manual, 60 = 1m, 120 = 2m, 300 = 5m
+  const [maxCandidates, setMaxCandidates] = useState<number | null>(null);
 
-  // Auto-generate prompt preview
+  // Auto-generate prompt preview for external AI models
   const externalAIPrompt = useMemo(() => {
     return generateExternalAIPrompt({
       topic: topic.trim() || 'General Trivia',
@@ -132,8 +100,7 @@ function QuizCreateContent() {
         setImportError('');
       }
     } catch {
-      // Fallback
-      setImportError('Could not access clipboard automatically. Please paste using Ctrl+V or long-press.');
+      setImportError('Please paste your copied JSON directly into the box below.');
     }
   };
 
@@ -148,31 +115,22 @@ function QuizCreateContent() {
         difficulty: "medium",
         questions: [
           {
-            question: "What is the derivative of $f(x) = x^3 - 4x + 7$ with respect to $x$?",
-            options: ["$3x^2 - 4$", "$3x^2 + 4$", "$x^2 - 4$", "$3x - 4$"],
+            question: "What is the derivative of $f(x) = x^3 + 4x^2 - 5x + 7$?",
+            options: ["$3x^2 + 8x - 5$", "$x^2 + 8x$", "$3x^2 + 4x - 5$", "$6x + 8$"],
             correctIndex: 0,
             timeLimit: 15,
             points: 1000,
-            explanation: "Applying the power rule: $\\frac{d}{dx}[x^3] = 3x^2$ and $\\frac{d}{dx}[-4x] = -4$.",
-            aiHostComment: "Classic calculus foundation verified."
+            explanation: "Using the power rule: $\\frac{d}{dx}[x^n] = n x^{n-1}$, we get $3x^2 + 8x - 5$.",
+            aiHostComment: "Fundamental power rule calculation."
           },
           {
-            question: "Evaluate the definite integral $\\int_0^2 2x\\,dx$:",
-            options: ["$4$", "$2$", "$8$", "$1$"],
+            question: "Evaluate the definite integral $\\int_0^2 3x^2 \\, dx$.",
+            options: ["$8$", "$12$", "$6$", "$24$"],
             correctIndex: 0,
             timeLimit: 15,
             points: 1000,
-            explanation: "The antiderivative is $x^2$. Evaluated from 0 to 2 gives $2^2 - 0 = 4$.",
-            aiHostComment: "Fundamental Theorem of Calculus applied cleanly."
-          },
-          {
-            question: "Which equation represents Euler's identity linking five fundamental constants?",
-            options: ["$e^{i\\pi} + 1 = 0$", "$E = mc^2$", "$a^2 + b^2 = c^2$", "$F = ma$"],
-            correctIndex: 0,
-            timeLimit: 15,
-            points: 1000,
-            explanation: "Euler's identity unites $e$, $i$, $\\pi$, $1$, and $0$ in a single profound relation.",
-            aiHostComment: "Widely regarded as the most elegant equation in mathematics."
+            explanation: "The antiderivative of $3x^2$ is $x^3$. Evaluating from 0 to 2 gives $2^3 - 0^3 = 8$.",
+            aiHostComment: "Direct application of the Fundamental Theorem of Calculus."
           }
         ]
       },
@@ -181,71 +139,80 @@ function QuizCreateContent() {
     );
     setRawImportText(sample);
     setImportError('');
-    setImportSuccess('Sample quiz loaded! Click "Parse & Load Quiz Questions" below.');
   };
 
-  // Handle Importing Pasted AI Output
+  // Handle JSON Import
   const handleImportJson = () => {
-    sound.playClick();
-    setImportError('');
-    setImportSuccess('');
-
-    const result = parseImportedQuizJson(rawImportText, topic || 'Imported Quiz');
-    if (!result.success || !result.quiz) {
-      sound.playWrong();
-      setImportError(result.error || 'Failed to parse JSON. Please verify the format.');
+    if (!rawImportText.trim()) {
+      setImportError('Please paste the JSON or AI response text first.');
       return;
     }
 
-    sound.playStreak();
-    setCurrentQuiz(result.quiz);
-    setImportSuccess(`Successfully imported ${result.quiz.questions.length} questions! Review and edit below.`);
+    sound.playSelect();
+    setImportError('');
+    setImportSuccess('');
+
+    const parsed = parseImportedQuizJson(rawImportText, topic || 'Imported AI Quiz');
+
+    if (parsed.success && parsed.quiz) {
+      setCurrentQuiz(parsed.quiz);
+      setImportSuccess(`Successfully imported ${parsed.quiz.questions.length} questions!`);
+      sound.playCorrect();
+    } else {
+      setImportError(parsed.error || 'Failed to parse JSON. Ensure it contains a valid questions array.');
+      sound.playWrong();
+    }
   };
 
-  // Handle Direct In-App API Generation
-  const handleDirectGenerate = async (targetTopic?: string) => {
-    const promptToUse = targetTopic || topic;
-    if (!promptToUse.trim()) return;
+  // Direct AI Generation
+  const handleDirectGenerate = async (customTopic?: string) => {
+    const selectedTopic = (customTopic || topic).trim();
+    if (!selectedTopic) return;
 
     sound.playClick();
     setIsGenerating(true);
-    setStatusMessage('Generating quiz questions...');
+    setStatusMessage('Generating questions with Grok AI...');
 
     try {
       const res = await fetch('/api/quiz/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          topic: promptToUse,
+          topic: selectedTopic,
           questionCount,
           difficulty,
           tone,
         }),
       });
 
+      if (!res.ok) {
+        throw new Error('Failed to generate quiz');
+      }
+
       const data = await res.json();
-      if (data.success && data.quiz) {
+      if (data.quiz) {
         setCurrentQuiz(data.quiz);
-        sound.playStreak();
+        sound.playCorrect();
       }
     } catch (err) {
-      console.error('Generation error:', err);
+      console.error('Quiz generation error:', err);
+      sound.playWrong();
     } finally {
       setIsGenerating(false);
       setStatusMessage('');
     }
   };
 
-  // Start with a blank manual quiz
+  // Manual Question Creator Setup
   const handleStartManual = () => {
     sound.playClick();
     const blankQuiz: Quiz = {
       id: `manual-${Date.now()}`,
-      title: topic.trim() || 'New Custom Quiz',
-      description: 'Handcrafted custom quiz',
+      title: topic || 'Custom Quiz Arena',
+      description: 'Handcrafted trivia challenge',
       category: 'Custom',
       difficulty: difficulty,
-      topic: topic.trim() || 'Custom',
+      topic: topic || 'Custom Trivia',
       createdAt: new Date().toISOString(),
       questions: [
         {
@@ -336,11 +303,11 @@ function QuizCreateContent() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-3.5 sm:px-6 py-6 sm:py-8 flex flex-col gap-5 w-full">
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 flex flex-col gap-6 w-full">
       
-      {/* Top Breadcrumb Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b-2 border-zinc-900">
-        <div className="flex items-center gap-2.5">
+      {/* Top Header */}
+      <div className="flex items-center justify-between pb-3 border-b-2 border-zinc-900">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => router.push('/')}
             className="p-1.5 bg-white hover:bg-zinc-100 border-2 border-zinc-900 text-zinc-950 transition-all rounded-none active:translate-y-0.5"
@@ -349,199 +316,132 @@ function QuizCreateContent() {
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono font-bold bg-zinc-950 text-white px-1.5 py-0.5 rounded-none uppercase">
+            <h1 className="text-base sm:text-lg font-mono font-black uppercase text-zinc-950 tracking-tight flex items-center gap-2">
+              <span>Create Quiz Arena</span>
+              <span className="text-[9px] font-bold px-1.5 py-0.2 bg-blue-100 text-blue-900 border border-blue-900 uppercase">
                 Studio
               </span>
-              <h1 className="text-base sm:text-lg font-mono font-black uppercase text-zinc-950 tracking-tight">
-                Quiz Creator & AI Prompt Hub
-              </h1>
-            </div>
-            <p className="text-[10px] sm:text-xs font-mono text-zinc-500">
-              Copy prompt &rarr; Paste into ChatGPT/Claude &rarr; Import results instantly
+            </h1>
+            <p className="text-[11px] font-mono text-zinc-500">
+              Generate with AI, import from external models, or craft manually.
             </p>
           </div>
         </div>
 
         {currentQuiz && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handlePlaySolo}
-              className="flex items-center gap-1 px-3 py-1.5 bg-white hover:bg-zinc-100 border-2 border-zinc-900 text-zinc-950 font-mono font-bold text-xs rounded-none active:translate-y-0.5"
-            >
-              <BrainCircuit className="w-3.5 h-3.5 text-purple-700" />
-              <span>Solo Practice</span>
-            </button>
-
-            <button
-              onClick={handleLaunchHost}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-zinc-950 hover:bg-blue-600 text-white font-mono font-bold text-xs border-2 border-zinc-900 rounded-none active:translate-y-0.5 transition-all shadow-none"
-            >
-              <Play className="w-3 h-3 fill-white" />
-              <span>Host Live Game</span>
-            </button>
-          </div>
+          <button
+            onClick={handleLaunchHost}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-zinc-950 hover:bg-blue-600 text-white font-mono font-bold text-xs border-2 border-zinc-900 rounded-none active:translate-y-0.5 transition-all shadow-none"
+          >
+            <Play className="w-3.5 h-3.5 fill-white" />
+            <span>Launch Game</span>
+          </button>
         )}
       </div>
 
-      {/* Mode Selector Tabs */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+      {/* Segmented Mode Switcher */}
+      <div className="grid grid-cols-3 bg-zinc-100 p-1 border-2 border-zinc-900 gap-1 rounded-none">
         <button
           type="button"
-          onClick={() => {
-            sound.playClick();
-            setActiveMode('PROMPT_IMPORT');
-          }}
-          className={`p-3 border-2 border-zinc-900 flex flex-col items-start text-left transition-all rounded-none ${
-            activeMode === 'PROMPT_IMPORT'
-              ? 'bg-blue-50 border-blue-900 text-blue-950 shadow-sm'
-              : 'bg-white text-zinc-900 hover:bg-zinc-50'
-          }`}
-        >
-          <div className="flex items-center gap-1.5 mb-1 font-mono font-bold text-xs uppercase">
-            <Bot className="w-4 h-4 text-blue-700" />
-            <span>AI Prompt & Importer</span>
-          </div>
-          <span className="text-[10px] font-mono text-zinc-500">
-            Copy pre-formatted prompt for ChatGPT, Claude, DeepSeek & paste result
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            sound.playClick();
-            setActiveMode('MANUAL');
-          }}
-          className={`p-3 border-2 border-zinc-900 flex flex-col items-start text-left transition-all rounded-none ${
-            activeMode === 'MANUAL'
-              ? 'bg-purple-50 border-purple-900 text-purple-950 shadow-sm'
-              : 'bg-white text-zinc-900 hover:bg-zinc-50'
-          }`}
-        >
-          <div className="flex items-center gap-1.5 mb-1 font-mono font-bold text-xs uppercase">
-            <Edit3 className="w-4 h-4 text-purple-700" />
-            <span>Manual Question Builder</span>
-          </div>
-          <span className="text-[10px] font-mono text-zinc-500">
-            Handcraft questions and choices step-by-step
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            sound.playClick();
-            setActiveMode('DIRECT_AI');
-          }}
-          className={`p-3 border-2 border-zinc-900 flex flex-col items-start text-left transition-all rounded-none ${
+          onClick={() => { sound.playClick(); setActiveMode('DIRECT_AI'); }}
+          className={`flex items-center justify-center gap-1.5 py-2 px-2 font-mono font-bold text-xs uppercase transition-all rounded-none ${
             activeMode === 'DIRECT_AI'
-              ? 'bg-amber-50 border-amber-900 text-amber-950 shadow-sm'
-              : 'bg-white text-zinc-900 hover:bg-zinc-50'
+              ? 'bg-zinc-950 text-white shadow-sm'
+              : 'text-zinc-700 hover:text-zinc-950 hover:bg-white/60'
           }`}
         >
-          <div className="flex items-center gap-1.5 mb-1 font-mono font-bold text-xs uppercase">
-            <Sparkles className="w-4 h-4 text-amber-700" />
-            <span>Direct In-App AI</span>
-          </div>
-          <span className="text-[10px] font-mono text-zinc-500">
-            1-Click automated generation via backend API
-          </span>
+          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+          <span className="hidden sm:inline">Instant AI</span>
+          <span className="sm:hidden">AI Gen</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => { sound.playClick(); setActiveMode('PROMPT_IMPORT'); }}
+          className={`flex items-center justify-center gap-1.5 py-2 px-2 font-mono font-bold text-xs uppercase transition-all rounded-none ${
+            activeMode === 'PROMPT_IMPORT'
+              ? 'bg-zinc-950 text-white shadow-sm'
+              : 'text-zinc-700 hover:text-zinc-950 hover:bg-white/60'
+          }`}
+        >
+          <Bot className="w-3.5 h-3.5 text-blue-400" />
+          <span className="hidden sm:inline">Prompt & Import</span>
+          <span className="sm:hidden">Import</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => { sound.playClick(); setActiveMode('MANUAL'); }}
+          className={`flex items-center justify-center gap-1.5 py-2 px-2 font-mono font-bold text-xs uppercase transition-all rounded-none ${
+            activeMode === 'MANUAL'
+              ? 'bg-zinc-950 text-white shadow-sm'
+              : 'text-zinc-700 hover:text-zinc-950 hover:bg-white/60'
+          }`}
+        >
+          <Edit3 className="w-3.5 h-3.5 text-purple-400" />
+          <span className="hidden sm:inline">Manual Builder</span>
+          <span className="sm:hidden">Manual</span>
         </button>
       </div>
 
       {/* ============================================================ */}
-      {/* 1. MODE: AI PROMPT GENERATOR & SMART JSON IMPORTER           */}
+      {/* 1. MODE: DIRECT IN-APP AI (CLEAN & FAST)                     */}
       {/* ============================================================ */}
-      {activeMode === 'PROMPT_IMPORT' && (
-        <div className="bg-white border-2 border-zinc-900 p-4 sm:p-6 shadow-sm rounded-none flex flex-col gap-6">
+      {activeMode === 'DIRECT_AI' && (
+        <div className="bg-white border-2 border-zinc-900 p-5 shadow-sm rounded-none flex flex-col gap-4">
           
-          {/* Header & Step-by-Step Flow Infographic */}
-          <div className="flex flex-col gap-3 pb-3 border-b-2 border-zinc-900">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm sm:text-base font-mono font-black uppercase text-zinc-950 tracking-tight">
-                How It Works: 3 Simple Steps
-              </h2>
-              <span className="text-[9px] font-mono font-bold px-2 py-0.5 bg-blue-100 border border-blue-900 text-blue-950 uppercase">
-                Works with any AI model
-              </span>
-            </div>
-
-            {/* 3 Step Visual Pipeline */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
-              <div className="p-2.5 bg-zinc-50 border border-zinc-900 flex items-start gap-2">
-                <span className="w-5 h-5 bg-blue-600 text-white font-mono text-[10px] font-bold flex items-center justify-center flex-shrink-0">1</span>
-                <div>
-                  <span className="text-[11px] font-mono font-bold text-zinc-950 uppercase block">Copy AI Prompt</span>
-                  <span className="text-[10px] font-mono text-zinc-500 block">Configure topic & click Copy Prompt below</span>
-                </div>
-              </div>
-
-              <div className="p-2.5 bg-zinc-50 border border-zinc-900 flex items-start gap-2">
-                <span className="w-5 h-5 bg-purple-600 text-white font-mono text-[10px] font-bold flex items-center justify-center flex-shrink-0">2</span>
-                <div>
-                  <span className="text-[11px] font-mono font-bold text-zinc-950 uppercase block">Paste into AI</span>
-                  <span className="text-[10px] font-mono text-zinc-500 block">Open ChatGPT/Claude, paste prompt & copy response</span>
-                </div>
-              </div>
-
-              <div className="p-2.5 bg-zinc-50 border border-zinc-900 flex items-start gap-2">
-                <span className="w-5 h-5 bg-emerald-600 text-white font-mono text-[10px] font-bold flex items-center justify-center flex-shrink-0">3</span>
-                <div>
-                  <span className="text-[11px] font-mono font-bold text-zinc-950 uppercase block">Import & Play</span>
-                  <span className="text-[10px] font-mono text-zinc-500 block">Paste AI response below & click Load Quiz</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Configuration Inputs */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-[11px] font-mono font-bold text-zinc-950 uppercase">
-                Quiz Topic / Subject
-              </label>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-mono font-bold text-zinc-950 uppercase tracking-wider">
+              Quiz Topic or Concept
+            </label>
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 type="text"
                 placeholder="e.g. Calculus Derivatives, African History, Quantum Physics..."
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
-                className="bg-zinc-50 border-2 border-zinc-900 px-3 py-2 text-zinc-950 font-mono text-xs font-bold outline-none rounded-none focus:bg-white"
+                onKeyDown={(e) => e.key === 'Enter' && handleDirectGenerate()}
+                className="flex-1 bg-zinc-50 border-2 border-zinc-900 px-3.5 py-2.5 text-zinc-950 font-mono text-xs font-bold outline-none rounded-none focus:bg-white"
               />
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-[11px] font-mono font-bold text-zinc-950 uppercase">
-                Specific Recommendations / Instructions (Optional)
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Include LaTeX math $x^2$, focus on chain rule, tricky options"
-                value={customInstructions}
-                onChange={(e) => setCustomInstructions(e.target.value)}
-                className="bg-zinc-50 border-2 border-zinc-900 px-3 py-2 text-zinc-950 font-mono text-xs font-bold outline-none rounded-none focus:bg-white"
-              />
+              <button
+                onClick={() => handleDirectGenerate()}
+                disabled={isGenerating || !topic.trim()}
+                className="flex items-center justify-center gap-1.5 px-6 py-2.5 bg-zinc-950 hover:bg-blue-600 text-white font-mono font-bold text-xs uppercase border-2 border-zinc-900 rounded-none transition-all disabled:opacity-40 active:translate-y-0.5"
+              >
+                {isGenerating ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Generating...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Generate Quiz</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
 
           {/* Quick Suggestions */}
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] font-mono text-zinc-400 uppercase mr-1">Ideas:</span>
             {POPULAR_SUGGESTIONS.map((s, idx) => (
               <button
                 key={idx}
                 type="button"
                 onClick={() => setTopic(s)}
-                className="text-[10px] font-mono font-semibold bg-zinc-100 hover:bg-zinc-200 border border-zinc-900 text-zinc-800 px-2 py-0.5 rounded-none transition-colors"
+                className="text-[10px] font-mono font-bold bg-zinc-50 hover:bg-zinc-100 border border-zinc-300 hover:border-zinc-900 text-zinc-800 px-2 py-0.5 rounded-none transition-colors"
               >
                 {s}
               </button>
             ))}
           </div>
 
-          {/* Matrix Parameters (Count, Difficulty, Tone) */}
+          {/* Configuration Parameters */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-zinc-200">
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-mono uppercase font-bold text-zinc-700">Questions: {questionCount}</span>
+              <span className="text-[10px] font-mono uppercase font-bold text-zinc-600">Questions</span>
               <div className="flex gap-1">
                 {[3, 5, 8, 10].map((c) => (
                   <button
@@ -559,15 +459,15 @@ function QuizCreateContent() {
             </div>
 
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-mono uppercase font-bold text-zinc-700">Difficulty: {difficulty.toUpperCase()}</span>
+              <span className="text-[10px] font-mono uppercase font-bold text-zinc-600">Difficulty</span>
               <div className="flex gap-1">
-                {(['easy', 'medium', 'hard', 'chaotic'] as const).map((d) => (
+                {(['easy', 'medium', 'hard'] as const).map((d) => (
                   <button
                     key={d}
                     type="button"
                     onClick={() => { sound.playClick(); setDifficulty(d); }}
                     className={`flex-1 py-1 text-[10px] font-mono font-bold uppercase border-2 border-zinc-900 rounded-none ${
-                      difficulty === d ? 'bg-amber-300 text-zinc-950 font-black' : 'bg-white hover:bg-zinc-100'
+                      difficulty === d ? 'bg-blue-600 text-white' : 'bg-white hover:bg-zinc-100'
                     }`}
                   >
                     {d}
@@ -577,7 +477,7 @@ function QuizCreateContent() {
             </div>
 
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-mono uppercase font-bold text-zinc-700">Tone: {tone.toUpperCase()}</span>
+              <span className="text-[10px] font-mono uppercase font-bold text-zinc-600">Tone</span>
               <div className="flex gap-1">
                 {(['scholarly', 'humorous', 'energetic'] as const).map((t) => (
                   <button
@@ -585,7 +485,7 @@ function QuizCreateContent() {
                     type="button"
                     onClick={() => { sound.playClick(); setTone(t); }}
                     className={`flex-1 py-1 text-[10px] font-mono font-bold uppercase border-2 border-zinc-900 rounded-none ${
-                      tone === t ? 'bg-purple-200 text-purple-950 font-black' : 'bg-white hover:bg-zinc-100'
+                      tone === t ? 'bg-purple-600 text-white' : 'bg-white hover:bg-zinc-100'
                     }`}
                   >
                     {t}
@@ -595,63 +495,72 @@ function QuizCreateContent() {
             </div>
           </div>
 
-          {/* STEP 1: Copy Prompt Box */}
-          <div className="flex flex-col gap-2 p-4 bg-zinc-50 border-2 border-zinc-900 rounded-none">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="w-5 h-5 bg-blue-600 text-white font-mono text-[10px] font-bold flex items-center justify-center">1</span>
-                <div>
-                  <span className="text-xs font-mono font-bold uppercase text-zinc-950 block">
-                    Copy Generated AI Prompt
-                  </span>
-                  <span className="text-[10px] font-mono text-zinc-500 block">
-                    Contains full JSON formatting & LaTeX math instructions
-                  </span>
-                </div>
+          {isGenerating && (
+            <div className="flex items-center gap-2 p-3 bg-zinc-100 border-2 border-zinc-900 text-zinc-950 text-xs font-mono font-bold">
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-600" />
+              <span>{statusMessage || 'AI model is crafting verified questions and formulas...'}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* 2. MODE: PROMPT & IMPORTER                                   */}
+      {/* ============================================================ */}
+      {activeMode === 'PROMPT_IMPORT' && (
+        <div className="flex flex-col gap-4">
+          
+          {/* Card 1: Copy AI Prompt */}
+          <div className="bg-white border-2 border-zinc-900 p-4 sm:p-5 shadow-sm rounded-none flex flex-col gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-zinc-200">
+              <div>
+                <span className="text-xs font-mono font-black uppercase text-zinc-950">
+                  Step 1: Copy AI Prompt
+                </span>
+                <p className="text-[10px] font-mono text-zinc-500">
+                  Formatted for ChatGPT, Claude, DeepSeek with KaTeX formulas
+                </p>
               </div>
 
               <button
                 type="button"
                 onClick={handleCopyPrompt}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-zinc-950 hover:bg-blue-600 text-white font-mono font-bold text-xs uppercase border-2 border-zinc-900 rounded-none active:translate-y-0.5 transition-all shadow-none"
+                className="flex items-center justify-center gap-1.5 px-4 py-1.5 bg-zinc-950 hover:bg-blue-600 text-white font-mono font-bold text-xs uppercase border-2 border-zinc-900 rounded-none active:translate-y-0.5 transition-all self-start sm:self-auto"
               >
                 {copiedPrompt ? (
                   <>
-                    <CheckCheck className="w-4 h-4 text-emerald-400" />
-                    <span>Prompt Copied to Clipboard!</span>
+                    <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Copied!</span>
                   </>
                 ) : (
                   <>
-                    <Copy className="w-4 h-4" />
-                    <span>Copy Prompt (Click Here)</span>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy Prompt</span>
                   </>
                 )}
               </button>
             </div>
 
-            <textarea
-              readOnly
-              rows={4}
-              value={externalAIPrompt}
-              className="w-full bg-white border border-zinc-900 p-2.5 text-[11px] font-mono text-zinc-800 outline-none select-all rounded-none resize-none leading-relaxed mt-1"
-            />
-          </div>
-
-          {/* STEP 2: Quick Launch AI Models Bar */}
-          <div className="flex flex-col gap-2 p-3.5 bg-blue-50/60 border-2 border-blue-900 rounded-none">
-            <div className="flex items-center gap-2">
-              <span className="w-5 h-5 bg-purple-600 text-white font-mono text-[10px] font-bold flex items-center justify-center flex-shrink-0">2</span>
-              <div>
-                <span className="text-xs font-mono font-bold uppercase text-blue-950 block">
-                  Open Your Favorite AI Model in 1-Click
-                </span>
-                <span className="text-[10px] font-mono text-blue-900 block">
-                  Click any model below to open in a new tab, then press Ctrl+V to paste your prompt:
-                </span>
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <input
+                type="text"
+                placeholder="Topic: e.g. Quantum Mechanics"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                className="bg-zinc-50 border border-zinc-900 px-2.5 py-1.5 text-xs font-mono font-bold outline-none rounded-none"
+              />
+              <input
+                type="text"
+                placeholder="Instructions: e.g. Include math equations"
+                value={customInstructions}
+                onChange={(e) => setCustomInstructions(e.target.value)}
+                className="bg-zinc-50 border border-zinc-900 px-2.5 py-1.5 text-xs font-mono font-bold outline-none rounded-none"
+              />
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mt-1">
+            {/* AI Model Shortcuts */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              <span className="text-[10px] font-mono text-zinc-400 uppercase mr-1">Open:</span>
               {EXTERNAL_MODELS.map((m, idx) => (
                 <a
                   key={idx}
@@ -659,109 +568,93 @@ function QuizCreateContent() {
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => sound.playClick()}
-                  className={`flex flex-col items-center justify-center p-2.5 border-2 ${m.color} rounded-none active:translate-y-0.5 transition-all text-center group`}
-                  title={`Open ${m.name} in a new tab`}
+                  className="flex items-center gap-1 px-2 py-0.5 bg-zinc-100 hover:bg-blue-50 border border-zinc-400 hover:border-blue-900 text-zinc-900 text-[10px] font-mono font-bold rounded-none transition-all"
                 >
-                  <div className="flex items-center gap-1 font-mono font-bold text-xs">
-                    <span>{m.name}</span>
-                    <ExternalLink className="w-3 h-3 opacity-60 group-hover:opacity-100" />
-                  </div>
-                  <span className="text-[9px] font-mono opacity-70 block mt-0.5">{m.provider}</span>
+                  <span>{m.name}</span>
+                  <ExternalLink className="w-2.5 h-2.5 opacity-60" />
                 </a>
               ))}
             </div>
           </div>
 
-          {/* STEP 3: Paste Output & Import Box */}
-          <div className="flex flex-col gap-2.5 p-4 bg-zinc-50 border-2 border-zinc-900 rounded-none">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="w-5 h-5 bg-emerald-600 text-white font-mono text-[10px] font-bold flex items-center justify-center flex-shrink-0">3</span>
-                <div>
-                  <span className="text-xs font-mono font-bold uppercase text-zinc-950 block">
-                    Paste AI Response & Import
-                  </span>
-                  <span className="text-[10px] font-mono text-zinc-500 block">
-                    Paste raw JSON or Markdown output from the AI
-                  </span>
-                </div>
+          {/* Card 2: Paste Response & Import */}
+          <div className="bg-white border-2 border-zinc-900 p-4 sm:p-5 shadow-sm rounded-none flex flex-col gap-3">
+            <div className="flex items-center justify-between pb-2 border-b border-zinc-200">
+              <div>
+                <span className="text-xs font-mono font-black uppercase text-zinc-950">
+                  Step 2: Paste AI Response & Build
+                </span>
+                <p className="text-[10px] font-mono text-zinc-500">
+                  Paste the JSON or Markdown output received from the AI
+                </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={handleLoadSample}
-                  className="px-2.5 py-1 bg-white hover:bg-zinc-100 border border-zinc-900 text-zinc-800 text-[10px] font-mono font-bold uppercase rounded-none transition-colors"
-                  title="Load a pre-configured sample quiz to test"
+                  className="px-2 py-1 bg-zinc-100 hover:bg-zinc-200 border border-zinc-900 text-zinc-800 text-[10px] font-mono font-bold uppercase rounded-none transition-colors"
                 >
-                  Load Sample JSON
+                  Sample JSON
                 </button>
-
                 <button
                   type="button"
                   onClick={handlePasteFromClipboard}
-                  className="flex items-center gap-1 px-2.5 py-1 bg-zinc-950 hover:bg-zinc-800 text-white text-[10px] font-mono font-bold uppercase border border-zinc-900 rounded-none transition-colors active:translate-y-0.5"
+                  className="flex items-center gap-1 px-2.5 py-1 bg-zinc-950 hover:bg-zinc-800 text-white text-[10px] font-mono font-bold uppercase border border-zinc-900 rounded-none active:translate-y-0.5"
                 >
                   <ClipboardPaste className="w-3 h-3" />
-                  <span>Paste Clipboard</span>
+                  <span>Paste</span>
                 </button>
               </div>
             </div>
 
             <textarea
-              rows={6}
-              placeholder="Paste the JSON response from ChatGPT / Claude / DeepSeek / Grok here..."
+              rows={5}
+              placeholder="Paste JSON response from ChatGPT, Claude, or DeepSeek here..."
               value={rawImportText}
               onChange={(e) => setRawImportText(e.target.value)}
-              className="w-full bg-white border-2 border-zinc-900 p-3 text-xs font-mono text-zinc-950 outline-none rounded-none placeholder-zinc-400 font-medium leading-relaxed"
+              className="w-full bg-zinc-50 border-2 border-zinc-900 p-3 text-xs font-mono text-zinc-950 outline-none rounded-none placeholder-zinc-400 font-medium leading-relaxed focus:bg-white"
             />
 
-            {/* Error / Success Feedback */}
             {importError && (
-              <div className="flex items-start gap-2 p-2.5 bg-rose-50 border-2 border-rose-900 text-rose-900 text-xs font-mono font-bold">
-                <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-700 mt-0.5" />
-                <div className="flex-1">
-                  <span className="block">{importError}</span>
-                  <span className="text-[10px] text-rose-700 font-normal block mt-0.5">
-                    Tip: Make sure the AI returned valid JSON or click &quot;Load Sample JSON&quot; to test.
-                  </span>
-                </div>
+              <div className="flex items-center gap-2 p-2 bg-rose-50 border border-rose-900 text-rose-900 text-xs font-mono font-bold">
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>{importError}</span>
               </div>
             )}
 
             {importSuccess && (
-              <div className="flex items-center gap-2 p-2.5 bg-emerald-50 border-2 border-emerald-900 text-emerald-900 text-xs font-mono font-bold">
-                <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-700" />
+              <div className="flex items-center gap-2 p-2 bg-emerald-50 border border-emerald-900 text-emerald-900 text-xs font-mono font-bold">
+                <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
                 <span>{importSuccess}</span>
               </div>
             )}
 
-            {/* Main Action Button */}
             <button
               type="button"
               onClick={handleImportJson}
               disabled={!rawImportText.trim()}
-              className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-700 text-white font-mono font-bold text-xs uppercase border-2 border-zinc-900 rounded-none active:translate-y-0.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-none"
+              className="w-full flex items-center justify-center gap-1.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-mono font-bold text-xs uppercase border-2 border-zinc-900 rounded-none active:translate-y-0.5 transition-all disabled:opacity-40"
             >
               <FileText className="w-4 h-4" />
-              <span>Parse & Load Quiz Questions</span>
+              <span>Load & Review Quiz</span>
             </button>
           </div>
         </div>
       )}
 
       {/* ============================================================ */}
-      {/* 2. MODE: MANUAL QUESTION BUILDER                             */}
+      {/* 3. MODE: MANUAL QUESTION BUILDER                             */}
       {/* ============================================================ */}
       {activeMode === 'MANUAL' && (
-        <div className="bg-white border-2 border-zinc-900 p-4 sm:p-6 shadow-sm rounded-none flex flex-col gap-4">
-          <div className="pb-3 border-b-2 border-zinc-900 flex items-center justify-between">
+        <div className="bg-white border-2 border-zinc-900 p-5 shadow-sm rounded-none flex flex-col gap-4">
+          <div className="flex items-center justify-between pb-2 border-b border-zinc-200">
             <div>
-              <h2 className="text-sm font-mono font-black uppercase text-zinc-950 tracking-tight">
+              <h2 className="text-xs font-mono font-black uppercase text-zinc-950">
                 Manual Question Builder
               </h2>
-              <p className="text-xs font-mono text-zinc-600 mt-0.5">
-                Build your own trivia questions from scratch with custom options and explanations.
+              <p className="text-[10px] font-mono text-zinc-500">
+                Author custom questions, options, and explanations directly.
               </p>
             </div>
 
@@ -769,10 +662,10 @@ function QuizCreateContent() {
               <button
                 type="button"
                 onClick={handleStartManual}
-                className="flex items-center gap-1.5 px-4 py-2 bg-zinc-950 hover:bg-blue-600 text-white font-mono font-bold text-xs uppercase border-2 border-zinc-900 rounded-none active:translate-y-0.5"
+                className="flex items-center gap-1 px-3 py-1.5 bg-zinc-950 hover:bg-purple-700 text-white font-mono font-bold text-xs uppercase border-2 border-zinc-900 rounded-none active:translate-y-0.5"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Start Blank Quiz</span>
+                <span>New Blank Quiz</span>
               </button>
             )}
           </div>
@@ -781,7 +674,7 @@ function QuizCreateContent() {
             <label className="text-[11px] font-mono font-bold text-zinc-950 uppercase">Quiz Title</label>
             <input
               type="text"
-              placeholder="e.g. Physics Final Review 2026"
+              placeholder="e.g. Physics Final Exam Review"
               value={topic}
               onChange={(e) => {
                 setTopic(e.target.value);
@@ -794,15 +687,15 @@ function QuizCreateContent() {
           </div>
 
           {!currentQuiz && (
-            <div className="p-8 text-center bg-zinc-50 border-2 border-dashed border-zinc-300">
-              <p className="text-xs font-mono text-zinc-500 mb-3">Click below to start adding questions manually.</p>
+            <div className="p-6 text-center bg-zinc-50 border border-zinc-300">
+              <p className="text-xs font-mono text-zinc-500 mb-2">Ready to author your quiz?</p>
               <button
                 type="button"
                 onClick={handleStartManual}
                 className="inline-flex items-center gap-1.5 px-4 py-2 bg-zinc-950 hover:bg-purple-700 text-white font-mono font-bold text-xs uppercase border-2 border-zinc-900 rounded-none"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Initialize Question 1</span>
+                <span>Start Adding Questions</span>
               </button>
             </div>
           )}
@@ -810,82 +703,12 @@ function QuizCreateContent() {
       )}
 
       {/* ============================================================ */}
-      {/* 3. MODE: DIRECT IN-APP AI GENERATION                         */}
-      {/* ============================================================ */}
-      {activeMode === 'DIRECT_AI' && (
-        <div className="bg-white border-2 border-zinc-900 p-4 sm:p-6 shadow-sm rounded-none flex flex-col gap-4">
-          <div className="pb-3 border-b-2 border-zinc-900">
-            <h2 className="text-sm font-mono font-black uppercase text-zinc-950 tracking-tight">
-              1-Click Direct AI Generation
-            </h2>
-            <p className="text-xs font-mono text-zinc-600 mt-0.5">
-              Instantly generate complete quiz sets using the connected backend AI model.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-mono font-bold text-zinc-950 uppercase">Quiz Topic</label>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <input
-                type="text"
-                placeholder="e.g. Space Exploration, Marvel Movies, JavaScript..."
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleDirectGenerate()}
-                className="flex-1 bg-zinc-50 border-2 border-zinc-900 px-3 py-2 text-zinc-950 font-mono text-xs font-bold outline-none rounded-none focus:bg-white"
-              />
-              <button
-                onClick={() => handleDirectGenerate()}
-                disabled={isGenerating || !topic.trim()}
-                className="flex items-center justify-center gap-1.5 px-5 py-2 bg-zinc-950 hover:bg-blue-600 text-white font-mono font-bold text-xs uppercase border-2 border-zinc-900 rounded-none transition-all disabled:opacity-50 disabled:cursor-not-allowed active:translate-y-0.5"
-              >
-                {isGenerating ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Generating...</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Generate Now</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-1.5">
-            {POPULAR_SUGGESTIONS.map((s, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => {
-                  setTopic(s);
-                  handleDirectGenerate(s);
-                }}
-                className="text-[10px] font-mono font-semibold bg-zinc-100 hover:bg-zinc-200 border border-zinc-900 text-zinc-800 px-2 py-1 rounded-none transition-colors"
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-
-          {isGenerating && (
-            <div className="flex items-center gap-2 p-2.5 bg-zinc-100 border-2 border-zinc-900 rounded-none text-zinc-950 text-xs font-mono font-bold animate-pulse">
-              <RefreshCw className="w-3.5 h-3.5 animate-spin text-zinc-950" />
-              <span>{statusMessage}</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ============================================================ */}
-      {/* INTERACTIVE QUESTION EDITOR & LAUNCH CONTROLS                */}
+      {/* REVIEW & LAUNCH SECTION                                      */}
       {/* ============================================================ */}
       {currentQuiz && (
-        <div className="flex flex-col gap-4 pt-2">
+        <div className="flex flex-col gap-4 pt-1">
           
-          {/* Quiz Metadata Banner */}
+          {/* Summary & Actions Header */}
           <div className="bg-white border-2 border-zinc-900 p-4 rounded-none shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
@@ -894,9 +717,9 @@ function QuizCreateContent() {
                 </span>
                 <span className="text-xs font-mono text-zinc-600 font-bold">{currentQuiz.category}</span>
                 <span className="text-xs font-mono text-zinc-400">•</span>
-                <span className="text-xs font-mono text-emerald-700 font-bold">{currentQuiz.questions.length} Questions Configured</span>
+                <span className="text-xs font-mono text-emerald-700 font-bold">{currentQuiz.questions.length} Questions</span>
               </div>
-              <h2 className="text-base sm:text-lg font-mono font-black text-zinc-950 mt-1 uppercase">
+              <h2 className="text-base font-mono font-black text-zinc-950 mt-1 uppercase">
                 {currentQuiz.title}
               </h2>
             </div>
@@ -910,74 +733,69 @@ function QuizCreateContent() {
             </button>
           </div>
 
-          {/* Launch Controls (Auto-Start & Capacity) */}
-          <div className="bg-white border-2 border-zinc-900 p-4 rounded-none shadow-sm flex flex-col gap-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              
-              {/* Auto-Start Delay */}
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[10px] font-mono uppercase font-bold text-zinc-700 flex items-center gap-1">
-                  <Clock className="w-3 h-3 text-zinc-950" />
-                  <span>Scheduled Auto-Start Delay</span>
-                </span>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1">
-                  {[
-                    { label: 'Manual', seconds: 0 },
-                    { label: '1 Min', seconds: 60 },
-                    { label: '2 Mins', seconds: 120 },
-                    { label: '5 Mins', seconds: 300 },
-                  ].map((opt) => (
-                    <button
-                      key={opt.seconds}
-                      type="button"
-                      onClick={() => { sound.playClick(); setAutoStartDelay(opt.seconds); }}
-                      className={`py-1 px-1.5 text-[10px] font-mono font-bold uppercase border-2 border-zinc-900 rounded-none transition-all ${
-                        autoStartDelay === opt.seconds ? 'bg-blue-600 text-white' : 'bg-white hover:bg-zinc-100'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
+          {/* Optional Host Settings (Auto-Start & Player Limit) */}
+          <div className="bg-zinc-50 border border-zinc-300 p-3 flex flex-col sm:flex-row gap-3 text-xs font-mono">
+            <div className="flex-1 flex items-center justify-between sm:justify-start gap-2">
+              <span className="text-[10px] font-bold uppercase text-zinc-600 flex items-center gap-1">
+                <Clock className="w-3 h-3 text-zinc-950" />
+                <span>Auto-Start:</span>
+              </span>
+              <div className="flex gap-1">
+                {[
+                  { label: 'Manual', seconds: 0 },
+                  { label: '1m', seconds: 60 },
+                  { label: '2m', seconds: 120 },
+                  { label: '5m', seconds: 300 },
+                ].map((opt) => (
+                  <button
+                    key={opt.seconds}
+                    type="button"
+                    onClick={() => { sound.playClick(); setAutoStartDelay(opt.seconds); }}
+                    className={`px-2 py-0.5 text-[10px] font-mono font-bold uppercase border rounded-none ${
+                      autoStartDelay === opt.seconds ? 'bg-zinc-950 text-white border-zinc-950' : 'bg-white border-zinc-300'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
+            </div>
 
-              {/* Candidate Capacity */}
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[10px] font-mono uppercase font-bold text-zinc-700 flex items-center gap-1">
-                  <Users className="w-3 h-3 text-zinc-950" />
-                  <span>Candidate Capacity Limit</span>
-                </span>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1">
-                  {[
-                    { label: 'Unlimited', value: null },
-                    { label: '10 Max', value: 10 },
-                    { label: '25 Max', value: 25 },
-                    { label: '50 Max', value: 50 },
-                  ].map((opt, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => { sound.playClick(); setMaxCandidates(opt.value); }}
-                      className={`py-1 px-1.5 text-[10px] font-mono font-bold uppercase border-2 border-zinc-900 rounded-none transition-all ${
-                        maxCandidates === opt.value ? 'bg-purple-600 text-white' : 'bg-white hover:bg-zinc-100'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
+            <div className="flex-1 flex items-center justify-between sm:justify-start gap-2">
+              <span className="text-[10px] font-bold uppercase text-zinc-600 flex items-center gap-1">
+                <Users className="w-3 h-3 text-zinc-950" />
+                <span>Limit:</span>
+              </span>
+              <div className="flex gap-1">
+                {[
+                  { label: 'None', value: null },
+                  { label: '10', value: 10 },
+                  { label: '25', value: 25 },
+                  { label: '50', value: 50 },
+                ].map((opt, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => { sound.playClick(); setMaxCandidates(opt.value); }}
+                    className={`px-2 py-0.5 text-[10px] font-mono font-bold uppercase border rounded-none ${
+                      maxCandidates === opt.value ? 'bg-zinc-950 text-white border-zinc-950' : 'bg-white border-zinc-300'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
 
-          {/* Question Cards List */}
+          {/* Question List */}
           <div className="flex flex-col gap-3">
             {currentQuiz.questions.map((q, qIdx) => (
               <div
                 key={q.id || qIdx}
-                className="bg-white border-2 border-zinc-900 p-4 rounded-none flex flex-col gap-3 shadow-sm"
+                className="bg-white border-2 border-zinc-900 p-3.5 sm:p-4 rounded-none flex flex-col gap-2.5 shadow-sm"
               >
-                <div className="flex items-start justify-between gap-2.5">
+                <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2 flex-1">
                     <span className="w-5 h-5 bg-zinc-950 text-white font-mono text-[10px] flex items-center justify-center font-bold rounded-none flex-shrink-0">
                       {qIdx + 1}
@@ -1004,8 +822,7 @@ function QuizCreateContent() {
 
                 {/* Math Live Preview if contains LaTeX */}
                 {(q.question.includes('$') || q.question.includes('\\')) && (
-                  <div className="px-2.5 py-1.5 bg-zinc-50 border border-zinc-300 text-xs font-mono text-zinc-900">
-                    <span className="text-[9px] font-bold text-zinc-500 uppercase block">Formula Render:</span>
+                  <div className="px-2.5 py-1 bg-zinc-50 border border-zinc-200 text-xs font-mono text-zinc-900">
                     <MathText text={q.question} />
                   </div>
                 )}
@@ -1017,16 +834,16 @@ function QuizCreateContent() {
                     return (
                       <div
                         key={optIdx}
-                        className={`flex items-center gap-2 p-2 border-2 transition-all rounded-none ${
+                        className={`flex items-center gap-2 p-2 border transition-all rounded-none ${
                           isCorrect
                             ? 'bg-emerald-50 border-emerald-900 text-emerald-950 font-bold'
-                            : 'bg-zinc-50 border-zinc-900'
+                            : 'bg-zinc-50 border-zinc-300'
                         }`}
                       >
                         <button
                           type="button"
                           onClick={() => handleSetCorrect(qIdx, optIdx)}
-                          title="Click to mark as correct option"
+                          title="Mark as correct answer"
                           className={`w-4 h-4 border border-zinc-900 flex items-center justify-center rounded-none flex-shrink-0 ${
                             isCorrect ? 'bg-emerald-600 text-white' : 'bg-white text-transparent'
                           }`}
@@ -1043,49 +860,29 @@ function QuizCreateContent() {
                     );
                   })}
                 </div>
-
-                {/* AI Tip and Explanation */}
-                <div className="flex flex-col sm:flex-row gap-2 text-[10px] font-mono">
-                  {q.aiHostComment && (
-                    <div className="flex-1 p-2 bg-purple-50 border border-purple-900 text-purple-950 rounded-none">
-                      <span className="font-bold">AI REMARK: </span>
-                      <MathText text={q.aiHostComment} />
-                    </div>
-                  )}
-                  {q.explanation && (
-                    <div className="flex-1 p-2 bg-zinc-100 border border-zinc-900 text-zinc-700 rounded-none">
-                      <span className="font-bold text-zinc-950">EXPLANATION: </span>
-                      <MathText text={q.explanation} />
-                    </div>
-                  )}
-                </div>
               </div>
             ))}
           </div>
 
-          {/* Floating Action Sticky Bar */}
-          <div className="sticky bottom-3 z-30 p-3 bg-white border-2 border-zinc-900 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 rounded-none">
-            <div>
-              <p className="text-xs font-mono font-bold text-zinc-950">{currentQuiz.questions.length} Questions Configured</p>
-              <p className="text-[10px] font-mono text-zinc-500">
-                {autoStartDelay > 0 ? `Auto-starts in ${autoStartDelay / 60}m • ` : 'Manual start • '}
-                {maxCandidates ? `Max ${maxCandidates} players` : 'Unlimited capacity'}
-              </p>
+          {/* Sticky Bottom Action Bar */}
+          <div className="sticky bottom-3 z-30 p-3 bg-white border-2 border-zinc-900 shadow-xl flex items-center justify-between gap-2 rounded-none">
+            <div className="text-xs font-mono font-bold text-zinc-950">
+              {currentQuiz.questions.length} Questions Ready
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="flex items-center gap-2">
               <button
                 onClick={handlePlaySolo}
-                className="flex-1 sm:flex-none px-4 py-2 bg-white hover:bg-zinc-100 border-2 border-zinc-900 text-zinc-950 font-mono font-bold text-xs rounded-none active:translate-y-0.5"
+                className="px-3 py-1.5 bg-white hover:bg-zinc-100 border-2 border-zinc-900 text-zinc-950 font-mono font-bold text-xs rounded-none active:translate-y-0.5"
               >
                 Solo Practice
               </button>
               <button
                 onClick={handleLaunchHost}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-2 bg-zinc-950 hover:bg-blue-600 text-white font-mono font-bold text-xs border-2 border-zinc-900 rounded-none active:translate-y-0.5 transition-all shadow-none"
+                className="flex items-center justify-center gap-1.5 px-5 py-1.5 bg-zinc-950 hover:bg-blue-600 text-white font-mono font-bold text-xs border-2 border-zinc-900 rounded-none active:translate-y-0.5 transition-all shadow-none"
               >
                 <Play className="w-3.5 h-3.5 fill-white" />
-                <span>Host Live Game</span>
+                <span>Host Live</span>
               </button>
             </div>
           </div>
@@ -1097,7 +894,7 @@ function QuizCreateContent() {
 
 export default function QuizCreatePage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-zinc-500 font-mono text-xs">Loading Quiz Creator...</div>}>
+    <Suspense fallback={<div className="p-8 text-center text-zinc-500 font-mono text-xs">Loading Studio...</div>}>
       <QuizCreateContent />
     </Suspense>
   );
