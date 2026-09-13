@@ -212,19 +212,33 @@ export async function generateQuizWithGrok(params: GenerateQuizParams): Promise<
   const topic = params.topic.trim();
   const tone = params.tone || 'scholarly';
 
+  const timeLimit = params.timePerQuestion && params.timePerQuestion > 0 ? params.timePerQuestion : 15;
+
   if (!apiKey || apiKey.includes('your-xai-key') || apiKey.includes('your-grok-key') || apiKey.includes('your-api-key')) {
     console.warn('[Kinetic AI] No active API key detected in .env. Using built-in generator fallback.');
     const lower = topic.toLowerCase();
     if (lower.includes('calc') || lower.includes('math') || lower.includes('integral') || lower.includes('deriv')) {
-      return { ...SAMPLE_QUIZZES.calculus, topic };
+      return {
+        ...SAMPLE_QUIZZES.calculus,
+        topic,
+        questions: SAMPLE_QUIZZES.calculus.questions.map((q) => ({ ...q, timeLimit })),
+      };
     }
     if (lower.includes('js') || lower.includes('javascript') || lower.includes('code') || lower.includes('web') || lower.includes('programming')) {
-      return { ...SAMPLE_QUIZZES.javascript, topic };
+      return {
+        ...SAMPLE_QUIZZES.javascript,
+        topic,
+        questions: SAMPLE_QUIZZES.javascript.questions.map((q) => ({ ...q, timeLimit })),
+      };
     }
     if (lower.includes('cameroon') || lower.includes('concours')) {
-      return { ...SAMPLE_QUIZZES.cameroon_history, topic };
+      return {
+        ...SAMPLE_QUIZZES.cameroon_history,
+        topic,
+        questions: SAMPLE_QUIZZES.cameroon_history.questions.map((q) => ({ ...q, timeLimit })),
+      };
     }
-    return generateSmartMockQuiz(topic, count, difficulty);
+    return generateSmartMockQuiz(topic, count, difficulty, timeLimit);
   }
 
   // Determine provider: GroqCloud (gsk_...) vs xAI (xai-...)
@@ -279,7 +293,7 @@ Strictly output ONLY valid JSON matching this schema:
       "question": "Clear, meaningful question stem (use $...$ for formulas)",
       "options": ["Plausible Option A", "Plausible Option B", "Plausible Option C", "Plausible Option D"],
       "correctIndex": 0,
-      "timeLimit": 15,
+      "timeLimit": ${timeLimit},
       "points": 1000,
       "explanation": "Clear 1-2 sentence factual or mathematical explanation",
       "aiHostComment": "Engaging analytical commentary"
@@ -361,8 +375,9 @@ Ensure all questions are concrete, meaningful, factually accurate, and strictly 
   }
 }
 
-function generateSmartMockQuiz(topic: string, count: number, difficulty: 'easy' | 'medium' | 'hard' | 'chaotic'): Quiz {
+function generateSmartMockQuiz(topic: string, count: number, difficulty: 'easy' | 'medium' | 'hard' | 'chaotic', timePerQuestion = 15): Quiz {
   const lower = topic.toLowerCase();
+  const qTimeLimit = timePerQuestion && timePerQuestion > 0 ? timePerQuestion : 15;
 
   const mathPool = [
     {
@@ -551,7 +566,7 @@ function generateSmartMockQuiz(topic: string, count: number, difficulty: 'easy' 
       question: item.q,
       options: item.opts,
       correctIndex: item.correct,
-      timeLimit: 15,
+      timeLimit: qTimeLimit,
       points: 1000,
       explanation: item.exp,
       aiHostComment: item.comment,

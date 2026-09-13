@@ -147,6 +147,7 @@ function QuizCreateContent() {
   };
 
   // Handle JSON Import
+  // Handle JSON Import
   const handleImportJson = () => {
     if (!rawImportText.trim()) {
       setImportError('Please paste the JSON or AI response text first.');
@@ -157,7 +158,7 @@ function QuizCreateContent() {
     setImportError('');
     setImportSuccess('');
 
-    const parsed = parseImportedQuizJson(rawImportText, topic || 'Imported AI Quiz');
+    const parsed = parseImportedQuizJson(rawImportText, topic || 'Imported AI Quiz', timePerQuestion);
 
     if (parsed.success && parsed.quiz) {
       setCurrentQuiz(parsed.quiz);
@@ -226,7 +227,7 @@ function QuizCreateContent() {
           question: 'Enter question text (supports math e.g. $f(x) = x^2$)',
           options: ['Option A', 'Option B', 'Option C', 'Option D'],
           correctIndex: 0,
-          timeLimit: 15,
+          timeLimit: timePerQuestion || 15,
           points: 1000,
           explanation: 'Explanation for the correct option.',
           aiHostComment: 'Sharp analytical observation.',
@@ -268,7 +269,7 @@ function QuizCreateContent() {
       question: 'New Question Text (e.g. $\\int_0^1 x dx = \\frac{1}{2}$)',
       options: ['Option A', 'Option B', 'Option C', 'Option D'],
       correctIndex: 0,
-      timeLimit: 15,
+      timeLimit: timePerQuestion || 15,
       points: 1000,
       explanation: 'Explanation for why this option is correct.',
       aiHostComment: 'Great question fact!',
@@ -280,6 +281,14 @@ function QuizCreateContent() {
     if (!currentQuiz || currentQuiz.questions.length === 0) return;
     sound.playSelect();
 
+    const normalizedQuiz: Quiz = {
+      ...currentQuiz,
+      questions: currentQuiz.questions.map((q) => ({
+        ...q,
+        timeLimit: q.timeLimit && q.timeLimit > 0 ? q.timeLimit : (timePerQuestion || 15),
+      })),
+    };
+
     const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     const hostId = 'host_' + Math.random().toString(36).substring(2, 9);
     const currentUser = AuthService.getCurrentUser();
@@ -287,12 +296,13 @@ function QuizCreateContent() {
 
     const room = createInitialRoom(
       roomCode,
-      currentQuiz,
+      normalizedQuiz,
       hostId,
       scheduledStartAt,
       currentUser?.id,
       currentUser?.name,
-      maxCandidates
+      maxCandidates,
+      timePerQuestion
     );
     const manager = getRoomManager(roomCode);
     manager.saveRoom(room);
@@ -304,7 +314,15 @@ function QuizCreateContent() {
     if (!currentQuiz || currentQuiz.questions.length === 0) return;
     sound.playSelect();
 
-    sessionStorage.setItem('quizpulse_solo_quiz', JSON.stringify(currentQuiz));
+    const normalizedQuiz: Quiz = {
+      ...currentQuiz,
+      questions: currentQuiz.questions.map((q) => ({
+        ...q,
+        timeLimit: q.timeLimit && q.timeLimit > 0 ? q.timeLimit : (timePerQuestion || 15),
+      })),
+    };
+
+    sessionStorage.setItem('quizpulse_solo_quiz', JSON.stringify(normalizedQuiz));
     router.push('/solo?from=studio');
   };
 
@@ -493,9 +511,21 @@ function QuizCreateContent() {
                   <button
                     key={t}
                     type="button"
-                    onClick={() => { sound.playClick(); setTimePerQuestion(t); }}
+                    onClick={() => {
+                      sound.playClick();
+                      setTimePerQuestion(t);
+                      if (currentQuiz) {
+                        setCurrentQuiz({
+                          ...currentQuiz,
+                          questions: currentQuiz.questions.map((q) => ({
+                            ...q,
+                            timeLimit: t,
+                          })),
+                        });
+                      }
+                    }}
                     className={`flex-1 py-1 text-[10px] font-mono font-bold border-2 border-zinc-900 rounded-none ${
-                      timePerQuestion === t ? 'bg-amber-500 text-zinc-950' : 'bg-white hover:bg-zinc-100 text-zinc-800'
+                      timePerQuestion === t ? 'bg-amber-500 text-zinc-950 font-black' : 'bg-white hover:bg-zinc-100 text-zinc-800'
                     }`}
                   >
                     {t}s
@@ -857,13 +887,34 @@ function QuizCreateContent() {
                       className="text-xs font-mono font-bold text-zinc-950 bg-transparent border-b border-transparent hover:border-zinc-300 focus:border-zinc-900 outline-none w-full px-1"
                     />
                   </div>
-                  <button
-                    onClick={() => handleDeleteQuestion(qIdx)}
-                    className="text-zinc-400 hover:text-rose-700 p-1 rounded-none transition-colors"
-                    title="Delete Question"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 text-[10px] font-mono bg-zinc-50 border border-zinc-300 px-1.5 py-0.5 rounded-none">
+                      <Clock className="w-2.5 h-2.5 text-zinc-600" />
+                      <select
+                        value={q.timeLimit || timePerQuestion || 15}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          const updated = { ...currentQuiz };
+                          updated.questions[qIdx].timeLimit = val;
+                          setCurrentQuiz(updated);
+                        }}
+                        className="bg-transparent text-zinc-950 font-bold outline-none cursor-pointer"
+                        title="Time limit for this question"
+                      >
+                        {[5, 10, 15, 20, 30, 45, 60, 90, 120].map((sec) => (
+                          <option key={sec} value={sec}>{sec}s</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <button
+                      onClick={() => handleDeleteQuestion(qIdx)}
+                      className="text-zinc-400 hover:text-rose-700 p-1 rounded-none transition-colors"
+                      title="Delete Question"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Math Live Preview if contains LaTeX */}

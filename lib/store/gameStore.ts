@@ -517,15 +517,28 @@ export function createInitialRoom(
   scheduledStartAt?: number | null,
   creatorId?: string,
   creatorName?: string,
-  maxCandidates?: number | null
+  maxCandidates?: number | null,
+  timePerQuestion?: number
 ): GameRoom {
+  const chosenTime = timePerQuestion && timePerQuestion > 0
+    ? timePerQuestion
+    : (quiz?.questions?.[0]?.timeLimit || 15);
+
+  const normalizedQuiz: Quiz = {
+    ...quiz,
+    questions: (quiz?.questions || []).map((q) => ({
+      ...q,
+      timeLimit: q.timeLimit && q.timeLimit > 0 ? q.timeLimit : chosenTime,
+    })),
+  };
+
   return {
     id: `room-${roomCode}-${Date.now()}`,
     roomCode: roomCode.toUpperCase(),
     hostId,
     creatorId,
     creatorName,
-    quiz,
+    quiz: normalizedQuiz,
     status: 'LOBBY',
     currentQuestionIndex: 0,
     questionStartedAt: null,
@@ -533,7 +546,7 @@ export function createInitialRoom(
     isPublic: true,
     maxCandidates: maxCandidates || null,
     settings: {
-      timePerQuestion: 15,
+      timePerQuestion: chosenTime,
       speedBonus: true,
       streakBonus: true,
       showExplanations: true,

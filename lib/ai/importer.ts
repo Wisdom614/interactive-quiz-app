@@ -136,7 +136,7 @@ export function normalizeAndCleanOptions(
 /**
  * Smartly parses raw text, markdown-fenced code blocks, JSON objects, or arrays pasted by the user.
  */
-export function parseImportedQuizJson(rawInput: string, fallbackTopic = 'Custom Quiz'): ParseResult {
+export function parseImportedQuizJson(rawInput: string, fallbackTopic = 'Custom Quiz', defaultTimeLimit = 15): ParseResult {
   const cleanInput = rawInput.trim();
   if (!cleanInput) {
     return { success: false, error: 'Please paste the AI response or JSON before clicking import.' };
@@ -224,7 +224,7 @@ export function parseImportedQuizJson(rawInput: string, fallbackTopic = 'Custom 
         question: qText,
         options,
         correctIndex,
-        timeLimit: typeof q.timeLimit === 'number' ? q.timeLimit : 15,
+        timeLimit: typeof q.timeLimit === 'number' && q.timeLimit > 0 ? q.timeLimit : defaultTimeLimit,
         points: typeof q.points === 'number' ? q.points : 1000,
         explanation: String(q.explanation || q.rationale || 'Verified factual knowledge.'),
         aiHostComment: String(q.aiHostComment || q.comment || 'Precision analytical remark.'),
