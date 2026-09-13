@@ -16,12 +16,14 @@ import { generateExternalAIPrompt, parseImportedQuizJson } from '@/lib/ai/import
 import { ArenaLoader } from '@/components/ArenaLoader';
 
 const POPULAR_SUGGESTIONS = [
-  'Mathematics & Calculus',
-  'Quantum Physics & Relativity',
-  'Space & Astronomy',
-  'World History & Civilizations',
-  'JavaScript & Web Architecture',
-  'Organic Chemistry',
+  'Cameroon History & Concours (1884–Present)',
+  'Cameroon GCE O/L & A/L Mathematics',
+  'Cameroon Geography, Regions & Agro-Industry',
+  'Cameroon Concours (Culture Générale & Institutions)',
+  'Cameroon Civics & Constitution of Cameroon',
+  'Cameroon GCE Physics & Chemistry',
+  'Cameroon Football (Indomitable Lions) & Culture',
+  'Computer Science & ICT (GCE Syllabus)',
 ];
 
 const EXTERNAL_MODELS = [
@@ -43,7 +45,7 @@ function QuizCreateContent() {
   const [activeMode, setActiveMode] = useState<CreationMode>('DIRECT_AI');
 
   // Common Parameters
-  const [topic, setTopic] = useState(initialTopic || 'Advanced Mathematics & Calculus');
+  const [topic, setTopic] = useState(initialTopic || 'Cameroon History & Concours (1884–Present)');
   const [questionCount, setQuestionCount] = useState<number>(5);
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard' | 'chaotic'>('medium');
   const [tone, setTone] = useState<'scholarly' | 'humorous' | 'sarcastic' | 'energetic'>('scholarly');
@@ -70,7 +72,7 @@ function QuizCreateContent() {
   // Auto-generate prompt preview for external AI models
   const externalAIPrompt = useMemo(() => {
     return generateExternalAIPrompt({
-      topic: topic.trim() || 'General Trivia',
+      topic: topic.trim() || 'Cameroon General Knowledge & Sciences',
       questionCount,
       difficulty,
       tone,
@@ -112,28 +114,28 @@ function QuizCreateContent() {
     sound.playClick();
     const sample = JSON.stringify(
       {
-        title: "Calculus & Mathematical Physics",
-        description: "Derivatives, integrals, and physical formulas",
-        category: "Mathematics",
+        title: "Cameroon History & Constitutional Evolution",
+        description: "National treaties, reunification, and constitutional milestones",
+        category: "Cameroon History",
         difficulty: "medium",
         questions: [
           {
-            question: "What is the derivative of $f(x) = x^3 + 4x^2 - 5x + 7$?",
-            options: ["$3x^2 + 8x - 5$", "$x^2 + 8x$", "$3x^2 + 4x - 5$", "$6x + 8$"],
+            question: "On what exact date was the Germano-Douala Treaty signed between Gustav Nachtigal and the Duala Kings?",
+            options: ["July 12, 1884", "January 1, 1960", "October 1, 1961", "May 20, 1972"],
             correctIndex: 0,
             timeLimit: 15,
             points: 1000,
-            explanation: "Using the power rule: $\\frac{d}{dx}[x^n] = n x^{n-1}$, we get $3x^2 + 8x - 5$.",
-            aiHostComment: "Fundamental power rule calculation."
+            explanation: "The Germano-Douala Treaty was signed on July 12, 1884, establishing the German Protectorate of Kamerun.",
+            aiHostComment: "Key colonial history milestone in the Cameroon GCE syllabus."
           },
           {
-            question: "Evaluate the definite integral $\\int_0^2 3x^2 \\, dx$.",
-            options: ["$8$", "$12$", "$6$", "$24$"],
+            question: "Which conference held in July 1961 agreed upon the Federal Constitution for the reunification of Cameroon?",
+            options: ["Foumban Constitutional Conference", "Mamfe Plebiscite Conference", "Yaounde Accords", "Bamenda Conference"],
             correctIndex: 0,
             timeLimit: 15,
             points: 1000,
-            explanation: "The antiderivative of $3x^2$ is $x^3$. Evaluating from 0 to 2 gives $2^3 - 0^3 = 8$.",
-            aiHostComment: "Direct application of the Fundamental Theorem of Calculus."
+            explanation: "The Foumban Conference (July 17–21, 1961) led by Ahidjo and Foncha established the Federal Republic.",
+            aiHostComment: "Foundational moment of the October 1, 1961 Reunification."
           }
         ]
       },
@@ -467,15 +469,15 @@ function QuizCreateContent() {
           {/* Configuration Parameters */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-zinc-200">
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-mono uppercase font-bold text-zinc-600">Questions</span>
-              <div className="flex gap-1">
-                {[3, 5, 8, 10].map((c) => (
+              <span className="text-[10px] font-mono uppercase font-bold text-zinc-600">Questions ({questionCount})</span>
+              <div className="flex flex-wrap gap-1">
+                {[5, 10, 15, 20, 25, 50].map((c) => (
                   <button
                     key={c}
                     type="button"
                     onClick={() => { sound.playClick(); setQuestionCount(c); }}
-                    className={`flex-1 py-1 text-xs font-mono font-bold border-2 border-zinc-900 rounded-none ${
-                      questionCount === c ? 'bg-zinc-950 text-white' : 'bg-white hover:bg-zinc-100'
+                    className={`flex-1 min-w-[28px] py-1 text-xs font-mono font-bold border-2 border-zinc-900 rounded-none ${
+                      questionCount === c ? 'bg-zinc-950 text-white' : 'bg-white hover:bg-zinc-100 text-zinc-900'
                     }`}
                   >
                     {c}

@@ -87,10 +87,10 @@ export default function HomePage() {
   };
 
   const presetTopics = [
-    { title: 'Mathematics & Calculus', icon: Calculator, prompt: 'Calculus, Linear Algebra, Geometry, Complex Equations & Math Lore', category: 'Math', color: 'text-zinc-950' },
-    { title: 'Tech & Artificial Intelligence', icon: Cpu, prompt: 'Artificial Intelligence, Computers & Tech Lore', category: 'Tech', color: 'text-zinc-950' },
-    { title: 'Quantum Physics & Science', icon: Atom, prompt: 'Quantum Mechanics, Solar System, Astronomy & Physics Formulas', category: 'Science', color: 'text-zinc-950' },
-    { title: 'Coding & Web Systems', icon: Code2, prompt: 'Algorithms, Data Structures, Web Development & Computing History', category: 'Coding', color: 'text-zinc-950' },
+    { title: 'Cameroon History & Concours', icon: Globe, prompt: 'Cameroon History & Constitutional Milestones (1884 to Present, Treaties & Governance)', category: 'History', color: 'text-zinc-950' },
+    { title: 'Cameroon GCE Mathematics', icon: Calculator, prompt: 'Cameroon GCE O/L & A/L Mathematics (Algebra, Calculus, Geometry & Mechanics)', category: 'Math', color: 'text-zinc-950' },
+    { title: 'Cameroon Geography & Economy', icon: Activity, prompt: 'Cameroon Geography, 10 Regions, Agro-Industry, Resources & Climate', category: 'Geography', color: 'text-zinc-950' },
+    { title: 'Concours & General Knowledge', icon: BrainCircuit, prompt: 'Cameroon National Concours, Civics, Constitution & Culture Générale', category: 'Concours', color: 'text-zinc-950' },
   ];
 
   return (

@@ -510,9 +510,15 @@ export default function HostGamePage() {
             <h1 className="text-2xl sm:text-4xl font-black font-mono text-zinc-950 uppercase tracking-tight">
               {room.quiz.title}
             </h1>
-            <p className="text-xs font-mono text-zinc-600 mt-1">
+            <p className="text-xs font-mono text-zinc-600 mt-1 mb-2">
               {room.quiz.questions.length} Questions &bull; Answers revealed upon completion
             </p>
+
+            {/* Questions Preload Confirmation */}
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 border border-emerald-800 text-emerald-950 text-[11px] font-mono font-bold">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+              <span>All {room.quiz.questions.length} Questions Preloaded on Host & Device Synced</span>
+            </div>
           </div>
 
           {/* Scheduled Auto-Start Banner */}
@@ -641,11 +647,13 @@ export default function HostGamePage() {
       )}
 
       {/* ============================================================ */}
-      {/* 2. QUESTION SCREEN (WITH INSTANT ADVANCE CONTROLS)           */}
+      {/* 2. QUESTION SCREEN (WITH INSTANT ADVANCE & LIVE ROSTER)     */}
       {/* ============================================================ */}
       {room.status === 'QUESTION' && currentQ && (
-        <div className="w-full max-w-5xl flex-1 flex flex-col justify-between gap-4 py-2">
-          
+        <div
+          key={`host-q-${room.currentQuestionIndex}`}
+          className="w-full max-w-5xl flex-1 flex flex-col justify-between gap-4 py-2 animate-in fade-in slide-in-from-bottom-2 duration-200"
+        >
           {/* Top Host Control & Progress Bar */}
           <div className="flex flex-col gap-2.5 bg-white border-2 border-zinc-900 p-4 rounded-none shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -691,10 +699,40 @@ export default function HostGamePage() {
             {/* Countdown Progress Bar */}
             <div className="w-full bg-zinc-200 h-2 border border-zinc-900 rounded-none overflow-hidden flex">
               <div
-                className="h-full bg-zinc-950 transition-all duration-1000"
+                className="h-full bg-zinc-950 transition-all duration-300"
                 style={{ width: `${(timeLeft / (currentQ.timeLimit || 15)) * 100}%` }}
               />
             </div>
+
+            {/* Live Candidate Answer Status Strip */}
+            {playersList.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-zinc-200">
+                <span className="text-[10px] font-mono font-bold uppercase text-zinc-500 mr-1">
+                  Candidate Responses ({answeredCount}/{playersList.length}):
+                </span>
+                {playersList.map((p) => {
+                  const hasAnswered = p.lastAnswer?.questionIndex === room.currentQuestionIndex;
+                  return (
+                    <div
+                      key={p.id}
+                      className={`flex items-center gap-1 px-2 py-0.5 border text-[10px] font-mono font-bold rounded-none ${
+                        hasAnswered
+                          ? 'bg-emerald-50 border-emerald-800 text-emerald-950'
+                          : 'bg-zinc-50 border-zinc-300 text-zinc-500'
+                      }`}
+                    >
+                      <VectorAvatar id={p.avatar || 'v_zap'} size="sm" />
+                      <span>{p.nickname}</span>
+                      {hasAnswered ? (
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                      ) : (
+                        <span className="text-[8px] opacity-60">⏳</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             {answeredCount >= playersList.length && playersList.length > 0 && (
               <div className="text-center text-[11px] font-mono font-bold text-emerald-800 bg-emerald-50 py-1 border border-emerald-800 animate-pulse">

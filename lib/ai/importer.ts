@@ -20,32 +20,37 @@ export function generateExternalAIPrompt(opts: PromptTemplateOptions): string {
 
   const timeLimit = opts.timePerQuestion || 15;
 
-  return `Generate exactly ${opts.questionCount} multiple-choice trivia questions about "${opts.topic.trim() || 'General Knowledge'}".
+  return `Generate EXACTLY ${opts.questionCount} multiple-choice examination questions on the topic: "${opts.topic.trim() || 'Cameroon General Knowledge & Sciences'}".
 Difficulty level: ${opts.difficulty}
 Tone: ${opts.tone}${customPart}
 
-CRITICAL FORMATTING INSTRUCTIONS:
-1. Return ONLY a valid JSON object matching the schema below. Do not wrap in conversational text or markdown explanation.
-2. For any mathematics, physics, engineering, or chemistry formulas, equations, or scientific symbols, ALWAYS format them using standard LaTeX enclosed in single dollar signs $...$ (e.g. "$f(x) = x^2 + 4x + 4$", "$\\frac{d}{dx}[\\sin x] = \\cos x$", "$\\sqrt{a^2 + b^2}$", "$\\int_0^1 x^2 dx = \\frac{1}{3}$", "$E = mc^2$").
-3. Ensure each question has EXACTLY 4 distinct, plausible answer strings in the "options" array. Do not put option labels like "A)" or "Option 1" inside the strings.
-4. "correctIndex" must be an integer (0 for option 1, 1 for option 2, 2 for option 3, 3 for option 4).
-5. Do NOT use unicode emojis. Keep language punchy, accurate, and engaging.
+CURRICULUM & QUESTION-SETTING DIRECTIVES (CAMEROON EXAMINATION STYLE):
+1. ACCURACY & PEDAGOGY: Follow the Cameroon GCE Board (Ordinary Level / Advanced Level) and Cameroonian National Concours (ENAM, ENS, Polytech, FHS, CUSS, ENSET, IRIC) standards.
+2. LOCAL & NATIONAL CONTEXT: If covering History, Geography, Civics, Economics, Law, Culture, or General Knowledge:
+   - Ground facts in authentic Cameroonian institutions (10 Regions, Constitution, Presidency, National Assembly, Senate, Supreme Court).
+   - Use authentic Cameroon history (1884 Germano-Douala Treaty, 1916 partition, UPC Ruben Um Nyobe, 1 Jan 1960 Independence, July 1961 Foumban Conference, 1 Oct 1961 Reunification, 20 May 1972 Unitary State).
+   - Geography & Economy (Mount Fako 4095m, Sanaga River, Lake Nyos, Waza Park, CDC, Pamol, Sodecoton, FCFA / XAF currency).
+   - Sports & Culture (Indomitable Lions, 5 AFCONs, Makossa, Bikutsi, official bilingualism: English/French).
+3. EXACT QUESTION COUNT: Return EXACTLY ${opts.questionCount} questions in the "questions" array.
+4. FORMULAS & LATEX: For any math or science formulas, equations, or chemical symbols, ALWAYS format with standard LaTeX in single dollar signs $...$ (e.g. "$2x^2 - 7x + 3 = 0$", "$\\frac{dy}{dx}$", "$E = mc^2$", "$CH_4$").
+5. OPTIONS: Exactly 4 plausible options per question without option prefixes (no "A)", "B.", or "Option 1" in strings).
+6. "correctIndex" must be 0, 1, 2, or 3. No unicode emojis. Return ONLY valid JSON.
 
 SCHEMA:
 {
-  "title": "Compelling and concise quiz title",
-  "description": "1-sentence synopsis of the quiz",
-  "category": "Domain (e.g. Mathematics, Science, Tech, History, Movies)",
+  "title": "Authoritative title (e.g. Cameroon GCE A/L Mathematics / Cameroon History)",
+  "description": "1-sentence synopsis of the curriculum scope",
+  "category": "Cameroon Academic & Concours",
   "difficulty": "${opts.difficulty}",
   "questions": [
     {
-      "question": "Clear and unambiguous question (use $...$ for math)",
+      "question": "Clear, syllabus-grounded question stem (use $...$ for math)",
       "options": ["First option value", "Second option value", "Third option value", "Fourth option value"],
       "correctIndex": 0,
       "timeLimit": ${timeLimit},
       "points": 1000,
-      "explanation": "1-2 sentence verified factual explanation (use $...$ for math)",
-      "aiHostComment": "A sharp, witty 1-sentence analytical remark (no emojis)"
+      "explanation": "1-2 sentence verified factual proof (use $...$ for math)",
+      "aiHostComment": "Analytical remark grounded in the subject matter"
     }
   ]
 }`;

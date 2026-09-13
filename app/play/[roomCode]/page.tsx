@@ -732,7 +732,7 @@ function PlayGameContent() {
           </div>
 
           {/* Auto-Start / Status Card */}
-          <div className="w-full p-2.5 bg-zinc-100 border-2 border-zinc-900 text-xs font-mono text-zinc-700 rounded-none flex flex-col gap-1">
+          <div className="w-full p-2.5 bg-zinc-100 border-2 border-zinc-900 text-xs font-mono text-zinc-700 rounded-none flex flex-col gap-1.5">
             <div className="flex items-center justify-between">
               <span className="font-black text-zinc-950 text-xs">ROOM PIN: #{roomCode}</span>
               {room.maxCandidates && (
@@ -742,13 +742,24 @@ function PlayGameContent() {
               )}
             </div>
 
+            {/* Question Pack Preload Confirmation */}
+            <div className="flex items-center justify-between px-2 py-1 bg-emerald-50 border border-emerald-800 text-emerald-950 text-[10px] font-bold">
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                <span>All Questions Preloaded Locally</span>
+              </div>
+              <span className="bg-emerald-200 text-emerald-950 px-1.5 py-0.2 border border-emerald-900 uppercase">
+                {room.quiz?.questions?.length || 0} Ready
+              </span>
+            </div>
+
             {room.scheduledStartAt && autoStartRemaining !== null ? (
               <div className="flex items-center justify-center gap-1.5 mt-0.5 p-1.5 bg-amber-50 border border-amber-900 text-amber-950 font-bold text-[11px]">
                 <Clock className="w-3 h-3 text-amber-700 animate-spin" />
                 <span>Starts automatically in: {Math.floor(autoStartRemaining / 60)}:{(autoStartRemaining % 60) < 10 ? '0' : ''}{autoStartRemaining % 60}</span>
               </div>
             ) : (
-              <p className="text-[11px] text-zinc-500">Waiting for host to start round 1...</p>
+              <p className="text-[11px] text-zinc-500 text-center">Waiting for host to launch round 1...</p>
             )}
           </div>
 
@@ -803,72 +814,97 @@ function PlayGameContent() {
       )}
 
       {/* ============================================================ */}
-      {/* 2. ACTIVE QUESTION VIEW */}
+      {/* 2. ACTIVE QUESTION VIEW (0-Latency Preloaded Question State) */}
       {/* ============================================================ */}
       {room.status === 'QUESTION' && (
-        <div className="flex-1 w-full flex flex-col justify-between py-2 gap-3">
-          
-          <div className="flex flex-col gap-1.5 bg-zinc-100 p-2.5 border-2 border-zinc-900 rounded-none">
+        <div
+          key={`round-${room.currentQuestionIndex}`}
+          className="flex-1 w-full flex flex-col justify-between py-2 gap-3 animate-in fade-in slide-in-from-bottom-2 duration-200"
+        >
+          {/* Question & Time Header */}
+          <div className="flex flex-col gap-2 bg-zinc-100 p-3 border-2 border-zinc-900 rounded-none shadow-sm">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono font-bold text-zinc-600 uppercase tracking-widest">
-                Question {room.currentQuestionIndex + 1} of {totalQuestions}
-              </span>
-              <div className="flex items-center gap-1 font-mono text-xs font-black text-zinc-950 bg-white px-2 py-0.5 border border-zinc-900">
-                <Timer className="w-3 h-3 text-zinc-950" />
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-mono font-bold text-zinc-600 uppercase tracking-widest">
+                  Question {room.currentQuestionIndex + 1} of {totalQuestions}
+                </span>
+                <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 bg-zinc-200 text-zinc-800 border border-zinc-400">
+                  +{currentQ?.points || 1000} PTS
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 font-mono text-xs font-black text-zinc-950 bg-white px-2 py-0.5 border border-zinc-900">
+                <Timer className="w-3.5 h-3.5 text-zinc-950" />
                 <span>{timeLeft}s</span>
               </div>
             </div>
 
             {/* Countdown Progress Bar */}
-            <div className="w-full bg-zinc-200 h-1.5 border border-zinc-900 rounded-none overflow-hidden flex">
+            <div className="w-full bg-zinc-200 h-2 border border-zinc-900 rounded-none overflow-hidden flex">
               <div
-                className="h-full bg-blue-600 transition-all duration-500"
+                className="h-full bg-blue-600 transition-all duration-300"
                 style={{ width: `${(timeLeft / (currentQ?.timeLimit || 15)) * 100}%` }}
               />
             </div>
 
-            <p className="text-xs font-mono font-bold text-zinc-950 mt-1 line-clamp-3">
+            {/* Question Text */}
+            <div className="text-sm font-mono font-bold text-zinc-950 mt-1 leading-snug">
               {currentQ ? <MathText text={currentQ.question} /> : 'Tap your answer choice below'}
-            </p>
+            </div>
           </div>
 
-          {hasLockedIn ? (
-            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center gap-3 bg-white border-2 border-zinc-900 rounded-none shadow-sm">
-              <div className="w-12 h-12 bg-zinc-950 text-white flex items-center justify-center border border-zinc-900 rounded-none">
-                <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+          {/* Locked-in Banner */}
+          {hasLockedIn && (
+            <div className="flex items-center justify-between px-3 py-2 bg-zinc-950 text-white border-2 border-zinc-900 text-xs font-mono font-bold rounded-none shadow-sm animate-in fade-in duration-150">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                <span>
+                  Option {selectedOption !== null ? SHAPE_CONTROLS[selectedOption]?.code : ''} Locked In ({(responseTimeMs / 1000).toFixed(2)}s)
+                </span>
               </div>
-              <h3 className="text-lg font-mono font-black text-zinc-950 uppercase">
-                Option {selectedOption !== null ? SHAPE_CONTROLS[selectedOption]?.code : ''} Locked In!
-              </h3>
-              <p className="text-xs font-mono text-zinc-500">
-                Answer recorded &bull; Waiting for round {room.currentQuestionIndex + 1} to finish...
-              </p>
-              <div className="text-[11px] font-mono text-zinc-600 bg-zinc-100 px-3 py-1 border border-zinc-300">
-                Your Response Time: {(responseTimeMs / 1000).toFixed(2)}s
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-2.5 flex-1 min-h-[260px]">
-              {SHAPE_CONTROLS.map((ctrl, idx) => {
-                const optionLabel = currentQ?.options?.[idx] || ctrl.name;
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => handleSelectOption(idx)}
-                    className={`flex flex-col items-center justify-center gap-2 p-3 border-2 ${ctrl.border} ${ctrl.bg} rounded-none active:translate-y-0.5 transition-all select-none relative shadow-sm`}
-                  >
-                    <span className="absolute top-1.5 left-2 text-[9px] font-mono font-bold opacity-70">
-                      Key {ctrl.key}
-                    </span>
-                    <span className="font-mono font-black text-2xl">{ctrl.code}</span>
-                    <span className="text-xs font-mono font-bold text-center px-1 line-clamp-3 leading-tight">
-                      <MathText text={optionLabel} />
-                    </span>
-                  </button>
-                );
-              })}
+              <span className="text-[10px] font-mono text-zinc-400 font-normal">
+                Waiting for next round...
+              </span>
             </div>
           )}
+
+          {/* 4 Choices Grid */}
+          <div className="grid grid-cols-2 gap-2.5 flex-1 min-h-[260px]">
+            {SHAPE_CONTROLS.map((ctrl, idx) => {
+              const optionLabel = currentQ?.options?.[idx] || ctrl.name;
+              const isSelected = selectedOption === idx;
+              const isOther = hasLockedIn && !isSelected;
+
+              return (
+                <button
+                  key={idx}
+                  disabled={hasLockedIn}
+                  onClick={() => handleSelectOption(idx)}
+                  className={`flex flex-col items-center justify-center gap-2 p-3 border-2 ${ctrl.border} ${ctrl.bg} rounded-none transition-all select-none relative shadow-sm ${
+                    isSelected
+                      ? 'ring-4 ring-zinc-950 scale-[1.02] z-10 opacity-100 shadow-md'
+                      : isOther
+                      ? 'opacity-40 grayscale-[20%] cursor-not-allowed'
+                      : 'active:translate-y-0.5 hover:opacity-95'
+                  }`}
+                >
+                  <div className="w-full flex items-center justify-between px-1">
+                    <span className="text-[9px] font-mono font-bold opacity-70">
+                      Key {ctrl.key}
+                    </span>
+                    {isSelected && (
+                      <span className="text-[9px] font-mono font-bold bg-white text-zinc-950 px-1 border border-zinc-900 uppercase">
+                        ✓ Locked
+                      </span>
+                    )}
+                  </div>
+                  <span className="font-mono font-black text-2xl">{ctrl.code}</span>
+                  <span className="text-xs font-mono font-bold text-center px-1 line-clamp-3 leading-tight">
+                    <MathText text={optionLabel} />
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 
