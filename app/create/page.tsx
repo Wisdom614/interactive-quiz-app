@@ -46,6 +46,7 @@ function QuizCreateContent() {
   const [questionCount, setQuestionCount] = useState<number>(5);
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard' | 'chaotic'>('medium');
   const [tone, setTone] = useState<'scholarly' | 'humorous' | 'sarcastic' | 'energetic'>('scholarly');
+  const [timePerQuestion, setTimePerQuestion] = useState<number>(15);
   const [customInstructions, setCustomInstructions] = useState<string>('');
 
   // Mode: Prompt & Import States
@@ -72,9 +73,10 @@ function QuizCreateContent() {
       questionCount,
       difficulty,
       tone,
+      timePerQuestion,
       customInstructions,
     });
-  }, [topic, questionCount, difficulty, tone, customInstructions]);
+  }, [topic, questionCount, difficulty, tone, timePerQuestion, customInstructions]);
 
   useEffect(() => {
     if (initialTopic) {
@@ -182,6 +184,7 @@ function QuizCreateContent() {
           questionCount,
           difficulty,
           tone,
+          timePerQuestion,
         }),
       });
 
@@ -439,7 +442,8 @@ function QuizCreateContent() {
           </div>
 
           {/* Configuration Parameters */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-zinc-200">
+          {/* Configuration Parameters */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-zinc-200">
             <div className="flex flex-col gap-1">
               <span className="text-[10px] font-mono uppercase font-bold text-zinc-600">Questions</span>
               <div className="flex gap-1">
@@ -453,6 +457,24 @@ function QuizCreateContent() {
                     }`}
                   >
                     {c}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-mono uppercase font-bold text-zinc-600">Time / Q</span>
+              <div className="flex gap-1">
+                {[10, 15, 20, 30, 45, 60].map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => { sound.playClick(); setTimePerQuestion(t); }}
+                    className={`flex-1 py-1 text-[10px] font-mono font-bold border-2 border-zinc-900 rounded-none ${
+                      timePerQuestion === t ? 'bg-amber-500 text-zinc-950' : 'bg-white hover:bg-zinc-100 text-zinc-800'
+                    }`}
+                  >
+                    {t}s
                   </button>
                 ))}
               </div>

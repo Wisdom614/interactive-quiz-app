@@ -1,10 +1,12 @@
 import { Quiz, QuizQuestion } from '@/types/quiz';
+import { normalizeAndCleanOptions } from './importer';
 
 export interface GenerateQuizParams {
   topic: string;
   questionCount?: number;
   difficulty?: 'easy' | 'medium' | 'hard' | 'chaotic';
   tone?: 'humorous' | 'scholarly' | 'sarcastic' | 'energetic';
+  timePerQuestion?: number;
 }
 
 const SAMPLE_QUIZZES: Record<string, Quiz> = {
@@ -201,17 +203,23 @@ Ensure exactly 4 plausible options per question. Shuffle the correct answers eve
     const parsed = JSON.parse(content);
     const quizId = (isGroq ? 'groq-' : 'grok-') + Date.now();
 
-    const formattedQuestions: QuizQuestion[] = (parsed.questions || []).map((q: Partial<QuizQuestion>, idx: number) => ({
-      id: `q-${idx + 1}-${Date.now()}`,
-      question: q.question || `Question ${idx + 1}`,
-      options: Array.isArray(q.options) && q.options.length === 4 ? q.options : ['Option A', 'Option B', 'Option C', 'Option D'],
-      correctIndex: typeof q.correctIndex === 'number' && q.correctIndex >= 0 && q.correctIndex <= 3 ? q.correctIndex : 0,
-      timeLimit: q.timeLimit || 15,
-      points: q.points || 1000,
-      explanation: q.explanation || 'Verified factual knowledge.',
-      aiHostComment: q.aiHostComment || 'Analytical precision verified.',
-      category: parsed.category || topic
-    }));
+    const defaultTimeLimit = params.timePerQuestion || 15;
+    const formattedQuestions: QuizQuestion[] = (parsed.questions || []).map((q: any, idx: number) => {
+      const qText = String(q.question || q.prompt || `Question ${idx + 1}`);
+      const { options, correctIndex } = normalizeAndCleanOptions(q);
+
+      return {
+        id: `q-${idx + 1}-${Date.now()}`,
+        question: qText,
+        options,
+        correctIndex,
+        timeLimit: typeof q.timeLimit === 'number' ? q.timeLimit : defaultTimeLimit,
+        points: typeof q.points === 'number' ? q.points : 1000,
+        explanation: String(q.explanation || 'Verified factual knowledge.'),
+        aiHostComment: String(q.aiHostComment || 'Analytical precision verified.'),
+        category: parsed.category || topic,
+      };
+    });
 
     console.log(`[Kinetic AI] Successfully generated ${formattedQuestions.length} questions from ${isGroq ? 'Groq' : 'Grok'} AI!`);
 

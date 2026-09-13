@@ -202,7 +202,7 @@ export default function HostGamePage() {
         const timeFraction = Math.max(0, 1 - (event.responseTimeMs / (currentQ.timeLimit * 1000)));
         const speedBonus = Math.round(timeFraction * 500);
         const streakBonus = isCorrect ? (player.streak) * 100 : 0;
-        const pointsEarned = isCorrect ? (currentQ.points + speedBonus + streakBonus) : 0;
+        const pointsEarned = isCorrect ? ((currentQ.points || 1000) + speedBonus + streakBonus) : 0;
 
         const answerRecord = {
           questionIndex: event.questionIndex,

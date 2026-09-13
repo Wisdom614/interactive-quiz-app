@@ -409,6 +409,53 @@ function PlayGameContent() {
     setHasLockedIn(true);
     setResponseTimeMs(elapsed);
 
+    const currentQ = room.quiz?.questions?.[room.currentQuestionIndex];
+    const isCorrect = currentQ ? (currentQ.correctIndex === idx) : false;
+    const timeLimit = currentQ?.timeLimit || 15;
+    const timeFraction = Math.max(0, 1 - (elapsed / (timeLimit * 1000)));
+    const speedBonus = Math.round(timeFraction * 500);
+    const streakBonus = isCorrect ? (streak) * 100 : 0;
+    const pointsEarned = isCorrect ? ((currentQ?.points || 1000) + speedBonus + streakBonus) : 0;
+
+    const answerRecord = {
+      questionIndex: room.currentQuestionIndex,
+      selectedIndex: idx,
+      isCorrect,
+      responseTimeMs: elapsed,
+      pointsEarned,
+    };
+
+    // Update local player state
+    setScore((prev) => prev + pointsEarned);
+    setStreak((prev) => (isCorrect ? prev + 1 : 0));
+
+    // Update player answers in local room state
+    setRoom((prev) => {
+      if (!prev) return null;
+      const prevPlayer = prev.players?.[playerId] || {
+        id: playerId,
+        nickname: currentNickname,
+        avatar: currentAvatar,
+        score: 0,
+        streak: 0,
+      };
+      const updatedAnswers = { ...(prevPlayer.answers || {}), [room.currentQuestionIndex]: answerRecord };
+      const updatedPlayer: Player = {
+        ...prevPlayer,
+        score: prevPlayer.score + pointsEarned,
+        streak: isCorrect ? prevPlayer.streak + 1 : 0,
+        lastAnswer: answerRecord,
+        answers: updatedAnswers,
+      };
+      return {
+        ...prev,
+        players: {
+          ...prev.players,
+          [playerId]: updatedPlayer,
+        },
+      };
+    });
+
     const manager = getRoomManager(roomCode);
     manager.broadcast({
       type: 'ANSWER_SUBMITTED',
@@ -452,15 +499,26 @@ function PlayGameContent() {
     setTimeout(() => setCopiedInvite(false), 2500);
   };
 
-  // 1. Loading Screen
+  // 1. Loading Screen (High-tech Radar / Searching UI)
   if (isLoading) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 text-center max-w-md mx-auto w-full">
-        <RefreshCw className="w-8 h-8 text-zinc-950 animate-spin mb-3" />
-        <h2 className="text-sm font-mono font-bold text-zinc-950 uppercase tracking-tight">
-          Connecting to Arena #{roomCode}...
+        <div className="relative flex items-center justify-center w-24 h-24 mb-6">
+          <div className="absolute inset-0 rounded-full border-2 border-blue-500/20 animate-ping" />
+          <div className="absolute inset-2 rounded-full border-2 border-dashed border-blue-600 animate-spin" />
+          <div className="w-14 h-14 bg-zinc-950 border-2 border-zinc-900 flex items-center justify-center text-white shadow-lg">
+            <Sparkles className="w-6 h-6 text-blue-400 animate-pulse" />
+          </div>
+        </div>
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 border-2 border-blue-900 text-blue-950 text-xs font-mono font-black uppercase mb-3">
+          <span>Searching Arena #{roomCode}</span>
+        </div>
+        <h2 className="text-base sm:text-lg font-mono font-black text-zinc-950 uppercase tracking-tight">
+          Establishing Real-Time Link...
         </h2>
-        <p className="text-xs font-mono text-zinc-500 mt-1">Syncing real-time room data with host</p>
+        <p className="text-xs font-mono text-zinc-600 mt-1 max-w-xs leading-relaxed">
+          Please wait comfortably while we search for your game room and synchronize with the host.
+        </p>
       </div>
     );
   }
@@ -555,6 +613,11 @@ function PlayGameContent() {
   }
 
   const currentQ = room.quiz?.questions?.[room.currentQuestionIndex];
+  const myPlayer = room.players?.[playerId];
+  const totalQuestions = room.quiz?.questions?.length || 1;
+  const correctCount = myPlayer?.answers
+    ? Object.values(myPlayer.answers).filter((a) => a.isCorrect).length
+    : (lastRoundResult?.isCorrect ? 1 : 0);
 
   return (
     <div className="relative flex-1 flex flex-col items-center justify-between p-4 sm:p-6 min-h-[calc(100vh-3.5rem)] max-w-md mx-auto w-full">
@@ -581,8 +644,12 @@ function PlayGameContent() {
         </div>
 
         <div className="text-right">
-          <span className="font-mono font-black text-xs text-zinc-950">{score.toLocaleString()}</span>
-          <span className="text-[8px] font-mono text-zinc-500 block uppercase tracking-widest -mt-0.5">points</span>
+          <span className="font-mono font-black text-xs text-zinc-950">
+            {correctCount} / {totalQuestions} Correct
+          </span>
+          <span className="text-[8px] font-mono text-zinc-500 block uppercase tracking-widest -mt-0.5">
+            {score.toLocaleString()} PTS
+          </span>
         </div>
       </div>
 
@@ -591,7 +658,7 @@ function PlayGameContent() {
         <div className="w-full bg-blue-50 border-2 border-blue-900 p-2 text-center rounded-none shadow-sm mb-2">
           <div className="flex items-center justify-center gap-1.5 text-blue-950 text-[10px] font-mono font-bold uppercase">
             <span className="w-2 h-2 bg-blue-600 animate-ping rounded-none" />
-            <span>Game in Progress: Round {(room.currentQuestionIndex ?? 0) + 1} of {room.quiz?.questions?.length || 1}</span>
+            <span>Game in Progress: Round {(room.currentQuestionIndex ?? 0) + 1} of {totalQuestions}</span>
           </div>
         </div>
       )}
@@ -688,7 +755,7 @@ function PlayGameContent() {
           
           <div className="text-center bg-zinc-100 p-2.5 border-2 border-zinc-900 rounded-none">
             <span className="text-[10px] font-mono font-bold text-zinc-600 uppercase tracking-widest">
-              Question {room.currentQuestionIndex + 1}
+              Question {room.currentQuestionIndex + 1} of {totalQuestions}
             </span>
             <p className="text-xs font-mono font-bold text-zinc-950 mt-0.5 line-clamp-3">
               {currentQ ? <MathText text={currentQ.question} /> : 'Tap your answer choice below'}
@@ -740,6 +807,22 @@ function PlayGameContent() {
       {/* ============================================================ */}
       {room.status === 'GAME_OVER' && (
         <div className="flex-1 w-full flex flex-col gap-6 py-2">
+          {/* Personal Performance Score Card */}
+          <div className="bg-white border-2 border-zinc-900 p-4 rounded-none shadow-sm text-center">
+            <span className="text-[10px] font-mono font-bold uppercase text-zinc-500">Your Final Performance</span>
+            <h2 className="text-2xl font-mono font-black text-zinc-950 mt-1 uppercase">
+              {correctCount} / {totalQuestions} Correct
+            </h2>
+            <div className="flex items-center justify-center gap-3 mt-2 text-xs font-mono font-bold">
+              <span className="px-2 py-0.5 bg-blue-50 border border-blue-900 text-blue-950">
+                Accuracy: {Math.round((correctCount / totalQuestions) * 100)}%
+              </span>
+              <span className="px-2 py-0.5 bg-amber-50 border border-amber-900 text-amber-950">
+                {score.toLocaleString()} PTS Earned
+              </span>
+            </div>
+          </div>
+
           <Podium
             players={Object.values(room.players)}
             onPlayAgain={() => router.push('/')}

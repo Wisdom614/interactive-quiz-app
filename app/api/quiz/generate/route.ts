@@ -16,7 +16,8 @@ export async function POST(req: NextRequest) {
       topic: body.topic,
       questionCount: body.questionCount || 5,
       difficulty: body.difficulty || 'medium',
-      tone: body.tone || 'humorous'
+      tone: body.tone || 'scholarly',
+      timePerQuestion: body.timePerQuestion || 15,
     });
 
     return NextResponse.json({ success: true, quiz });
