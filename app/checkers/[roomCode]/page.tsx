@@ -678,6 +678,13 @@ export default function CheckersArenaPage() {
     }
   };
 
+  // Player perspective orientation:
+  // Red player sees Red at bottom (rows 7..0)
+  // Black player sees Black at bottom (rows 0..7 reversed)
+  const isBlackPerspective = myPlayerColor === 'black';
+  const displayRows = isBlackPerspective ? [7, 6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5, 6, 7];
+  const displayCols = isBlackPerspective ? [7, 6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5, 6, 7];
+
   const selectedDestinations = selectedPos
     ? getLegalMoves(board, currentTurn, mustJumpChainPos)
         .filter(m => m.from.row === selectedPos.row && m.from.col === selectedPos.col)
@@ -1106,8 +1113,9 @@ export default function CheckersArenaPage() {
             {/* The 8x8 Board Canvas */}
             <div className="relative p-2.5 sm:p-3 bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 rounded-3xl border-2 border-slate-700/80 shadow-2xl">
               <div className="grid grid-cols-8 grid-rows-8 gap-1 w-[320px] h-[320px] sm:w-[440px] sm:h-[440px] md:w-[480px] md:h-[480px]">
-                {board.map((row, r) =>
-                  row.map((piece, c) => {
+                {displayRows.map((r, rowIdx) =>
+                  displayCols.map((c, colIdx) => {
+                    const piece = board[r][c];
                     const isDarkSquare = (r + c) % 2 === 1;
                     const isSelected = selectedPos?.row === r && selectedPos?.col === c;
                     const isLastMoveFrom = lastMove?.from && lastMove.from.row === r && lastMove.from.col === c;
@@ -1115,13 +1123,16 @@ export default function CheckersArenaPage() {
                     const validDest = selectedDestinations.find(m => m.to.row === r && m.to.col === c);
                     const isJump = validDest && validDest.captures && validDest.captures.length > 0;
                     const isKingPiece = piece ? isKing(piece) : false;
-                    const isMyOwnPiece = piece && isPieceOfPlayer(piece, myPlayerColor);
+                    const isMyOwnPiece = piece ? isPieceOfPlayer(piece, myPlayerColor) : false;
+                    const isOpponentPiece = piece ? !isPieceOfPlayer(piece, myPlayerColor) : false;
+                    const isMyTurn = currentTurn === myPlayerColor;
+                    const isForcedChainPiece = mustJumpChainPos && mustJumpChainPos.row === r && mustJumpChainPos.col === c;
 
                     return (
                       <div
                         key={`${r}-${c}`}
                         onClick={() => handleSquareClick(r, c)}
-                        className={`relative flex items-center justify-center rounded-lg sm:rounded-xl cursor-pointer transition-all duration-150 ${
+                        className={`relative flex items-center justify-center rounded-lg sm:rounded-xl transition-all duration-150 ${
                           isDarkSquare ? 'bg-slate-800/90' : 'bg-slate-700/30'
                         } ${
                           isSelected ? 'ring-4 ring-amber-400 ring-inset shadow-inner' : ''
@@ -1129,8 +1140,22 @@ export default function CheckersArenaPage() {
                           isLastMoveTo ? 'ring-4 ring-emerald-400 ring-inset bg-emerald-950/30 shadow-[0_0_12px_rgba(52,211,153,0.35)]' : ''
                         } ${
                           isLastMoveFrom ? 'ring-2 ring-amber-400/60 ring-dashed bg-amber-950/20' : ''
-                        } hover:brightness-110`}
+                        } ${
+                          isMyTurn ? 'cursor-pointer hover:brightness-110' : 'cursor-default'
+                        }`}
                       >
+                        {/* Algebraic edge coordinates */}
+                        {colIdx === 0 && (
+                          <span className="absolute top-0.5 left-1 text-[9px] font-mono font-bold text-slate-500/70 select-none pointer-events-none">
+                            {8 - r}
+                          </span>
+                        )}
+                        {rowIdx === 7 && (
+                          <span className="absolute bottom-0.5 right-1 text-[9px] font-mono font-bold text-slate-500/70 select-none pointer-events-none">
+                            {String.fromCharCode(65 + c)}
+                          </span>
+                        )}
+
                         {/* Realtime Last Move Target Spot Indicator */}
                         {isLastMoveTo && (
                           <span className="absolute -top-1 -right-1 z-20 flex h-3.5 w-3.5 pointer-events-none">
@@ -1155,20 +1180,37 @@ export default function CheckersArenaPage() {
                           }`} />
                         )}
 
-                        {/* Checkers Piece */}
+                        {/* Checkers Piece with UX Turn Dimming & Perspective */}
                         {piece && (
                           <div
-                            className={`relative w-8 h-8 sm:w-11 sm:h-11 md:w-12 md:h-12 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shadow-xl transition-all transform ${
-                              isSelected ? 'scale-110 -translate-y-1' : 'hover:scale-105'
+                            className={`relative w-8 h-8 sm:w-11 sm:h-11 md:w-12 md:h-12 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shadow-xl transition-all duration-300 transform ${
+                              isSelected ? 'scale-110 -translate-y-1' : ''
                             } ${
                               piece === 'r' || piece === 'R'
                                 ? 'bg-gradient-to-b from-red-500 via-red-600 to-red-800 border-2 sm:border-4 border-red-300 text-white shadow-red-600/40'
                                 : 'bg-gradient-to-b from-slate-600 via-slate-800 to-slate-950 border-2 sm:border-4 border-slate-400 text-slate-100 shadow-black/60'
-                            } ${isMyOwnPiece && currentTurn === myPlayerColor ? 'ring-2 ring-emerald-400/50' : ''}`}
+                            } ${
+                              // Turn-based graying out & visual prioritization
+                              !isMyTurn && isMyOwnPiece
+                                ? 'grayscale-[90%] opacity-35 brightness-75 contrast-75 cursor-not-allowed shadow-none select-none'
+                                : !isMyTurn && isOpponentPiece
+                                ? 'ring-2 ring-amber-400/80 shadow-md shadow-amber-400/25 animate-pulse'
+                                : isMyTurn && isMyOwnPiece
+                                ? isForcedChainPiece
+                                  ? 'ring-4 ring-amber-400 shadow-xl shadow-amber-400/50 animate-bounce cursor-pointer'
+                                  : isSelected
+                                  ? 'ring-4 ring-amber-400 shadow-xl shadow-amber-400/50 cursor-pointer'
+                                  : 'ring-2 ring-emerald-400/90 shadow-emerald-400/30 cursor-pointer hover:scale-105 active:scale-95'
+                                : 'grayscale-[85%] opacity-35 contrast-85 brightness-90 pointer-events-none shadow-none select-none'
+                            }`}
                           >
                             <div className="w-5 h-5 sm:w-7 sm:h-7 rounded-full border border-white/20 flex items-center justify-center">
                               {isKingPiece && (
-                                <Crown className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-amber-300 drop-shadow animate-pulse" />
+                                <Crown className={`w-3.5 h-3.5 sm:w-5 sm:h-5 drop-shadow transition-colors ${
+                                  (isMyTurn && isMyOwnPiece) || (!isMyTurn && isOpponentPiece)
+                                    ? 'text-amber-300 animate-pulse'
+                                    : 'text-slate-500/70'
+                                }`} />
                               )}
                             </div>
                           </div>
