@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import 'katex/dist/katex.min.css';
 import { Navbar } from '@/components/Navbar';
-import { PwaInstallPrompt } from '@/components/PwaInstallPrompt';
+import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -46,7 +46,7 @@ export default function RootLayout({
         <main className="flex-1 flex flex-col">
           {children}
         </main>
-        <PwaInstallPrompt />
+        <ServiceWorkerRegister />
       </body>
     </html>
   );

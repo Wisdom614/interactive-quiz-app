@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Sparkles, Zap, Gamepad2, BrainCircuit, Menu, X, LayoutDashboard, Crown, Download } from 'lucide-react';
+import { Sparkles, Zap, Gamepad2, BrainCircuit, Menu, X, LayoutDashboard, Crown } from 'lucide-react';
 import { AudioToggle } from './AudioToggle';
 import { sound } from '@/lib/audio/soundEngine';
 import { AuthService } from '@/lib/auth/authStore';
@@ -23,13 +23,6 @@ export function Navbar() {
 
   const closeMenu = () => {
     setIsMobileMenuOpen(false);
-  };
-
-  const triggerPwaInstall = () => {
-    closeMenu();
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('open-pwa-install'));
-    }
   };
 
   return (
@@ -83,30 +76,11 @@ export function Navbar() {
             <span>Join Game</span>
           </Link>
 
-          {/* Desktop Install App Trigger */}
-          <button
-            onClick={triggerPwaInstall}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-mono font-bold text-zinc-700 hover:text-zinc-950 hover:bg-zinc-100 border border-zinc-300 transition-all rounded-none"
-            title="Install Mobile & Desktop PWA"
-          >
-            <Download className="w-3.5 h-3.5 text-amber-600" />
-            <span>Install App</span>
-          </button>
-
           <AudioToggle />
         </nav>
 
-        {/* Mobile Right Controls: Install + Sound + Menu Button */}
+        {/* Mobile Right Controls: Sound + Menu Button */}
         <div className="flex md:hidden items-center gap-2">
-          <button
-            onClick={triggerPwaInstall}
-            className="p-1.5 bg-red-600 text-white border-2 border-zinc-900 rounded-none text-xs font-mono font-bold flex items-center gap-1"
-            title="Install App"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span className="text-[10px]">App</span>
-          </button>
-
           <AudioToggle />
 
           <button
@@ -122,18 +96,6 @@ export function Navbar() {
       {/* Mobile Dropdown Menu Panel */}
       {isMobileMenuOpen && (
         <div className="md:hidden border-t-2 border-zinc-900 bg-white p-4 flex flex-col gap-2.5 shadow-md">
-          {/* Install PWA Prompt Button */}
-          <button
-            onClick={triggerPwaInstall}
-            className="flex items-center justify-between p-3 bg-gradient-to-r from-red-600 to-rose-600 text-white font-mono font-bold text-xs uppercase border-2 border-zinc-900 rounded-none active:translate-y-0.5 shadow-sm"
-          >
-            <div className="flex items-center gap-2">
-              <Download className="w-4 h-4" />
-              <span>Install Checkers & Quiz App</span>
-            </div>
-            <span className="text-[10px] bg-red-950 px-1.5 py-0.5">PWA</span>
-          </button>
-
           <Link
             href="/checkers"
             onClick={closeMenu}

@@ -16,8 +16,7 @@ import {
   Trophy,
   Volume2,
   VolumeX,
-  Shuffle,
-  Download
+  Shuffle
 } from 'lucide-react';
 import { AIDifficulty, PlayerColor } from '@/lib/games/checkersEngine';
 import { sound } from '@/lib/audio/soundEngine';
@@ -184,22 +183,7 @@ export default function CheckersLobbyPage() {
           <span className="font-semibold text-sm">Back to Hub</span>
         </Link>
 
-        <div className="flex items-center gap-2 sm:gap-3">
-          {/* PWA Install Button */}
-          <button
-            onClick={() => {
-              sound.playSelect();
-              if (typeof window !== 'undefined') {
-                window.dispatchEvent(new CustomEvent('open-pwa-install'));
-              }
-            }}
-            className="py-2 px-3 rounded-none bg-red-600 hover:bg-red-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-red-600/20 transition active:scale-95"
-            title="Install Checkers Arena as Mobile App"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Install App</span>
-          </button>
-
+        <div className="flex items-center gap-3">
           <button
             onClick={toggleMute}
             className="p-2 rounded-none bg-slate-900/80 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition"
