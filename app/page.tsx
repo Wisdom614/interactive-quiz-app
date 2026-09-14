@@ -224,30 +224,45 @@ export default function HomePage() {
             </Link>
           </div>
 
-          {/* Solo Mode Card */}
+          {/* Solo & Royale Mode Card */}
           <div className="bg-white border-2 border-zinc-900 p-6 shadow-sm rounded-none">
             <div className="flex items-start justify-between mb-3">
               <div className="p-2 bg-purple-100 border-2 border-zinc-900 text-purple-900 rounded-none">
                 <BrainCircuit className="w-4 h-4" />
               </div>
-              <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 bg-zinc-100 border border-zinc-900 text-zinc-900 rounded-none">
-                1-ON-1
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 bg-rose-100 border border-rose-900 text-rose-950 rounded-none">
+                  NEW: ROYALE MODE
+                </span>
+                <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 bg-zinc-100 border border-zinc-900 text-zinc-900 rounded-none">
+                  SOLO / AI
+                </span>
+              </div>
             </div>
             <h3 className="text-lg font-mono font-bold text-zinc-950 tracking-tight mb-1 uppercase">
-              Play Solo vs Computer
+              Play Solo & Battle Royale
             </h3>
             <p className="text-xs font-mono text-zinc-600 mb-5 leading-relaxed">
-              No one else around? Practice on your own and test your trivia speed against our AI opponent.
+              Test your speed in 1v1 practice or enter the <strong>Survival Royale</strong> ladder with 3 hearts (❤️❤️❤️) against 5 computer bots.
             </p>
-            <Link
-              href="/solo"
-              onClick={() => sound.playClick()}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-950 hover:bg-purple-700 text-white font-mono font-bold text-xs border-2 border-zinc-900 rounded-none active:translate-y-0.5 transition-all"
-            >
-              <span>Play Solo Now</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/solo"
+                onClick={() => sound.playClick()}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-zinc-950 hover:bg-zinc-800 text-white font-mono font-bold text-xs border-2 border-zinc-900 rounded-none active:translate-y-0.5 transition-all"
+              >
+                <span>1v1 Duel</span>
+                <ArrowRight className="w-3 h-3" />
+              </Link>
+              <Link
+                href="/solo?mode=SURVIVAL_ROYALE"
+                onClick={() => sound.playClick()}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-mono font-bold text-xs border-2 border-zinc-900 rounded-none active:translate-y-0.5 transition-all"
+              >
+                <span>💀 Play Royale</span>
+                <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
           </div>
         </div>
       </div>

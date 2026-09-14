@@ -528,14 +528,21 @@ export function createInitialRoom(
   creatorId?: string,
   creatorName?: string,
   maxCandidates?: number | null,
-  timePerQuestion?: number
+  timePerQuestion?: number,
+  gameMode: 'CLASSIC' | 'SURVIVAL_ROYALE' = 'CLASSIC',
+  startingHearts: number = 3
 ): GameRoom {
   const chosenTime = timePerQuestion && timePerQuestion > 0
     ? timePerQuestion
     : (quiz?.questions?.[0]?.timeLimit || 15);
 
+  const chosenMode = quiz.gameMode || gameMode || 'CLASSIC';
+  const chosenHearts = quiz.startingHearts || startingHearts || 3;
+
   const normalizedQuiz: Quiz = {
     ...quiz,
+    gameMode: chosenMode,
+    startingHearts: chosenHearts,
     questions: (quiz?.questions || []).map((q) => ({
       ...q,
       timeLimit: q.timeLimit && q.timeLimit > 0 ? q.timeLimit : chosenTime,
@@ -550,6 +557,8 @@ export function createInitialRoom(
     creatorName,
     quiz: normalizedQuiz,
     status: 'LOBBY',
+    gameMode: chosenMode,
+    startingHearts: chosenHearts,
     currentQuestionIndex: 0,
     questionStartedAt: null,
     scheduledStartAt: scheduledStartAt || null,
@@ -562,6 +571,8 @@ export function createInitialRoom(
       showExplanations: true,
       aiCommentaryEnabled: true,
       maxCandidates: maxCandidates || null,
+      gameMode: chosenMode,
+      startingHearts: chosenHearts,
     },
     players: {},
   };

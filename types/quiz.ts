@@ -1,3 +1,5 @@
+export type GameMode = 'CLASSIC' | 'SURVIVAL_ROYALE';
+
 export type GameState = 
   | 'LOBBY'
   | 'STARTING'
@@ -34,6 +36,8 @@ export interface Quiz {
   createdAt: string;
   creatorName?: string;
   creatorId?: string;
+  gameMode?: GameMode;
+  startingHearts?: number;
 }
 
 export interface PlayerAnswerRecord {
@@ -50,10 +54,25 @@ export interface Player {
   avatar: string;
   score: number;
   streak: number;
+  lives?: number; // Starting hearts (e.g. 3) in SURVIVAL_ROYALE mode
+  isEliminated?: boolean; // True when lives === 0 in SURVIVAL_ROYALE mode
+  eliminatedAtQuestion?: number;
   lastAnswer?: PlayerAnswerRecord;
   answers?: Record<number, PlayerAnswerRecord>;
   isHost?: boolean;
   joinedAt?: number;
+}
+
+export interface RoomSettings {
+  timePerQuestion: number;
+  speedBonus: boolean;
+  streakBonus: boolean;
+  showExplanations: boolean;
+  aiCommentaryEnabled: boolean;
+  autoStartSeconds?: number;
+  maxCandidates?: number | null;
+  gameMode?: GameMode;
+  startingHearts?: number;
 }
 
 export interface GameRoom {
@@ -64,20 +83,14 @@ export interface GameRoom {
   creatorName?: string;
   quiz: Quiz;
   status: GameState;
+  gameMode?: GameMode;
+  startingHearts?: number;
   currentQuestionIndex: number;
   questionStartedAt: number | null; // timestamp ms
   scheduledStartAt?: number | null; // epoch ms when quiz automatically takes off
   isPublic?: boolean;
   maxCandidates?: number | null; // null or positive number limit
-  settings: {
-    timePerQuestion: number;
-    speedBonus: boolean;
-    streakBonus: boolean;
-    showExplanations: boolean;
-    aiCommentaryEnabled: boolean;
-    autoStartSeconds?: number;
-    maxCandidates?: number | null;
-  };
+  settings: RoomSettings;
   players: Record<string, Player>;
   lastRevealedAnswer?: {
     questionIndex: number;
@@ -102,6 +115,7 @@ export type BroadcastEvent =
   | { type: 'ANSWER_SUBMITTED'; playerId: string; questionIndex: number; selectedIndex: number; responseTimeMs: number }
   | { type: 'REVEAL_ANSWER'; questionIndex: number; correctIndex: number; explanation: string; aiCommentary?: string }
   | { type: 'SCORES_UPDATED'; players: Record<string, Player> }
+  | { type: 'PLAYER_ELIMINATED'; playerId: string; questionIndex: number }
   | { type: 'REACTION'; emoji: string; nickname: string; id: string }
   | { type: 'PLAYER_JOINED'; player: Player }
   | { type: 'PLAYER_LEFT'; playerId: string }

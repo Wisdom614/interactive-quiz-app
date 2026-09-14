@@ -475,6 +475,22 @@ function PlayGameContent() {
     const streakBonus = isCorrect ? (streak) * 100 : 0;
     const pointsEarned = isCorrect ? ((currentQ?.points || 1000) + speedBonus + streakBonus) : 0;
 
+    const isRoyale = room.gameMode === 'SURVIVAL_ROYALE' || room.quiz?.gameMode === 'SURVIVAL_ROYALE';
+    const defaultHearts = room.startingHearts || room.quiz?.startingHearts || 3;
+    const currentLives = myPlayer?.lives !== undefined ? myPlayer.lives : defaultHearts;
+    let newLives = currentLives;
+    let isEliminated = myPlayer?.isEliminated || false;
+
+    if (isRoyale && !isCorrect && !isEliminated) {
+      newLives = Math.max(0, currentLives - 1);
+      if (newLives === 0) {
+        isEliminated = true;
+        sound.playEliminated();
+      } else {
+        sound.playHeartBreak();
+      }
+    }
+
     const answerRecord = {
       questionIndex: room.currentQuestionIndex,
       selectedIndex: idx,
@@ -506,6 +522,9 @@ function PlayGameContent() {
         ...prevPlayer,
         score: authoritativeScore,
         streak: isCorrect ? (prevPlayer.streak || 0) + 1 : 0,
+        lives: isRoyale ? newLives : undefined,
+        isEliminated: isRoyale ? isEliminated : undefined,
+        eliminatedAtQuestion: isEliminated && !prevPlayer.isEliminated ? room.currentQuestionIndex : prevPlayer.eliminatedAtQuestion,
         lastAnswer: answerRecord,
         answers: updatedAnswers,
       };
@@ -690,6 +709,11 @@ function PlayGameContent() {
     ? myAnswers.filter((a) => a?.isCorrect).length
     : (lastRoundResult?.isCorrect ? 1 : 0);
 
+  const isRoyale = room.gameMode === 'SURVIVAL_ROYALE' || room.quiz?.gameMode === 'SURVIVAL_ROYALE';
+  const defaultHearts = room.startingHearts || room.quiz?.startingHearts || 3;
+  const myLives = myPlayer?.lives !== undefined ? myPlayer.lives : defaultHearts;
+  const isMeEliminated = Boolean(myPlayer?.isEliminated || (isRoyale && myLives <= 0));
+
   return (
     <div className="relative flex-1 flex flex-col items-center justify-between p-4 sm:p-6 min-h-[calc(100vh-3.5rem)] max-w-md mx-auto w-full">
       
@@ -704,11 +728,23 @@ function PlayGameContent() {
         <div className="flex items-center gap-2">
           <VectorAvatar id={currentAvatar} size="sm" />
           <div className="flex flex-col">
-            <span className="font-mono font-bold text-zinc-950 text-xs tracking-tight">{currentNickname}</span>
-            {streak >= 2 && (
+            <div className="flex items-center gap-1.5">
+              <span className="font-mono font-bold text-zinc-950 text-xs tracking-tight">{currentNickname}</span>
+              {isRoyale && (
+                <span className="text-xs font-black">
+                  {!isMeEliminated ? '❤️'.repeat(myLives) : '👻'}
+                </span>
+              )}
+            </div>
+            {streak >= 2 && !isMeEliminated && (
               <span className="flex items-center gap-0.5 text-[9px] font-mono font-bold text-amber-800">
                 <Flame className="w-2.5 h-2.5 fill-amber-600 text-amber-600" />
                 {streak} in a row
+              </span>
+            )}
+            {isMeEliminated && (
+              <span className="text-[9px] font-mono font-bold text-rose-700 uppercase">
+                Ghost Spectator
               </span>
             )}
           </div>
@@ -724,12 +760,28 @@ function PlayGameContent() {
         </div>
       </div>
 
+      {/* Battle Royale Low Health Warning */}
+      {isRoyale && !isMeEliminated && myLives === 1 && room.status === 'QUESTION' && (
+        <div className="w-full bg-rose-600 text-white p-1 text-center font-mono font-black text-[10px] uppercase border-2 border-zinc-900 animate-pulse mb-1">
+          🚨 CRITICAL: 1 HEART REMAINING! ONE WRONG ANSWER ELIMINATES YOU!
+        </div>
+      )}
+
+      {/* Ghost Spectator Mode Banner */}
+      {isMeEliminated && room.status === 'QUESTION' && (
+        <div className="w-full bg-zinc-950 text-white p-2 text-center font-mono font-bold text-xs uppercase border-2 border-zinc-900 flex items-center justify-center gap-2 mb-1 shadow-sm">
+          <span>👻 GHOST SPECTATOR MODE (YOU CAN PREDICT & CHEER)</span>
+        </div>
+      )}
+
       {/* Active In-Progress Notification Badge */}
-      {room.status !== 'LOBBY' && room.status !== 'GAME_OVER' && (
+      {room.status !== 'LOBBY' && room.status !== 'GAME_OVER' && !isMeEliminated && (
         <div className="w-full bg-blue-50 border-2 border-blue-900 p-2 text-center rounded-none shadow-sm mb-2">
           <div className="flex items-center justify-center gap-1.5 text-blue-950 text-[10px] font-mono font-bold uppercase">
             <span className="w-2 h-2 bg-blue-600 animate-ping rounded-none" />
-            <span>Game in Progress: Round {(room.currentQuestionIndex ?? 0) + 1} of {totalQuestions}</span>
+            <span>
+              {isRoyale ? '⚔️ Royale Gauntlet' : 'Game in Progress'}: Round {(room.currentQuestionIndex ?? 0) + 1} of {totalQuestions}
+            </span>
           </div>
         </div>
       )}
@@ -742,8 +794,17 @@ function PlayGameContent() {
           <div className="flex flex-col items-center gap-1.5">
             <VectorAvatar id={currentAvatar} size="lg" className="border-2 border-zinc-900" />
             <div>
-              <h2 className="text-base sm:text-lg font-mono font-black text-zinc-950 uppercase tracking-tight">You&apos;re In the Game!</h2>
-              <p className="text-[11px] font-mono text-zinc-600">Look at the big screen when round begins.</p>
+              <div className="flex items-center justify-center gap-1.5 mb-0.5">
+                <h2 className="text-base sm:text-lg font-mono font-black text-zinc-950 uppercase tracking-tight">You&apos;re In the Game!</h2>
+                {isRoyale && (
+                  <span className="px-1.5 py-0.2 bg-rose-600 text-white text-[9px] font-black uppercase">
+                    Royale
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] font-mono text-zinc-600">
+                {isRoyale ? `You start with ${defaultHearts} Hearts. Don't lose them!` : 'Look at the big screen when round begins.'}
+              </p>
             </div>
           </div>
 
@@ -751,11 +812,15 @@ function PlayGameContent() {
           <div className="w-full p-2.5 bg-zinc-100 border-2 border-zinc-900 text-xs font-mono text-zinc-700 rounded-none flex flex-col gap-1.5">
             <div className="flex items-center justify-between">
               <span className="font-black text-zinc-950 text-xs">ROOM PIN: #{roomCode}</span>
-              {room.maxCandidates && (
+              {isRoyale ? (
+                <span className="text-[9px] font-black px-1.5 py-0.5 bg-rose-100 border border-rose-900 text-rose-950 uppercase">
+                  {defaultHearts} ❤️ SUDDEN DEATH
+                </span>
+              ) : room.maxCandidates ? (
                 <span className="text-[9px] font-bold px-1.5 py-0.5 bg-purple-100 border border-purple-900 text-purple-950 uppercase">
                   Limit: {room.maxCandidates} max
                 </span>
-              )}
+              ) : null}
             </div>
 
             {/* Question Pack Preload Confirmation */}

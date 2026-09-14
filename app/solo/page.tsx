@@ -25,16 +25,30 @@ const SHAPE_CONTROLS = [
 function SoloGameContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const urlMode = searchParams.get('mode');
 
+  const [mode, setMode] = useState<'CLASSIC' | 'SURVIVAL_ROYALE'>(
+    urlMode === 'SURVIVAL_ROYALE' ? 'SURVIVAL_ROYALE' : 'CLASSIC'
+  );
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [userScore, setUserScore] = useState(0);
   const [botScore, setBotScore] = useState(0);
   const [streak, setStreak] = useState(0);
+  const [userLives, setUserLives] = useState(3);
   const [timeLeft, setTimeLeft] = useState(15);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isGameOver, setIsGameOver] = useState(false);
   const [userAnswers, setUserAnswers] = useState<Record<number, { questionIndex: number; selectedIndex: number; isCorrect: boolean; responseTimeMs: number; pointsEarned: number }>>({});
+
+  // 5 AI Competitors for Battle Royale Mode
+  const [aiBots, setAiBots] = useState<Array<{ id: string; nickname: string; avatar: string; score: number; lives: number; isEliminated: boolean }>>([
+    { id: 'bot_1', nickname: 'QuantumBot', avatar: 'v_bot', score: 0, lives: 3, isEliminated: false },
+    { id: 'bot_2', nickname: 'NeuralNova', avatar: 'v_brain', score: 0, lives: 3, isEliminated: false },
+    { id: 'bot_3', nickname: 'CyberSage', avatar: 'v_matrix', score: 0, lives: 3, isEliminated: false },
+    { id: 'bot_4', nickname: 'FlashTrivia', avatar: 'v_zap', score: 0, lives: 3, isEliminated: false },
+    { id: 'bot_5', nickname: 'VectorViper', avatar: 'v_skull', score: 0, lives: 3, isEliminated: false },
+  ]);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const autoAdvanceRef = useRef<NodeJS.Timeout | null>(null);
@@ -45,6 +59,12 @@ function SoloGameContent() {
       try {
         const parsed = JSON.parse(stored);
         setQuiz(parsed);
+        if (parsed.gameMode === 'SURVIVAL_ROYALE' || urlMode === 'SURVIVAL_ROYALE') {
+          setMode('SURVIVAL_ROYALE');
+          const hearts = parsed.startingHearts || 3;
+          setUserLives(hearts);
+          setAiBots((prev) => prev.map((b) => ({ ...b, lives: hearts, isEliminated: false })));
+        }
         startQuestion(parsed, 0);
         return;
       } catch (e) {
@@ -66,8 +86,8 @@ function SoloGameContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          topic: 'General Science & Trivia',
-          questionCount: 5,
+          topic: 'Calculus, Physics & CS Trivia',
+          questionCount: 8,
           difficulty: 'medium',
           tone: 'scholarly',
         }),
@@ -131,18 +151,28 @@ function SoloGameContent() {
     const q = activeQuiz.questions[qIndex];
     const isUserCorrect = userChoice === q.correctIndex;
 
-    const botCorrect = Math.random() < 0.75;
-    const botPoints = botCorrect ? Math.round(q.points * 0.9) : 0;
-    setBotScore((prev) => prev + botPoints);
-
     let points = 0;
+    let nextUserLives = userLives;
+
     if (isUserCorrect) {
       const speedFraction = Math.max(0, timeLeft / q.timeLimit);
       points = Math.round(q.points + speedFraction * 400 + streak * 100);
       setUserScore((prev) => prev + points);
       setStreak((prev) => prev + 1);
+      sound.playCorrect();
     } else {
       setStreak(0);
+      if (mode === 'SURVIVAL_ROYALE') {
+        nextUserLives = Math.max(0, userLives - 1);
+        setUserLives(nextUserLives);
+        if (nextUserLives === 0) {
+          sound.playEliminated();
+        } else {
+          sound.playHeartBreak();
+        }
+      } else {
+        sound.playWrong();
+      }
     }
 
     if (userChoice !== null) {
@@ -158,10 +188,39 @@ function SoloGameContent() {
       }));
     }
 
-    if (qIndex + 1 < activeQuiz.questions.length) {
+    // Simulate AI bots responses and health
+    if (mode === 'SURVIVAL_ROYALE') {
+      setAiBots((prev) =>
+        prev.map((bot) => {
+          if (bot.isEliminated) return bot;
+          const botPasses = Math.random() < 0.70;
+          const botNewLives = botPasses ? bot.lives : Math.max(0, bot.lives - 1);
+          const botPts = botPasses ? Math.round(q.points * 0.85) : 0;
+          return {
+            ...bot,
+            score: bot.score + botPts,
+            lives: botNewLives,
+            isEliminated: botNewLives === 0,
+          };
+        })
+      );
+    } else {
+      const botCorrect = Math.random() < 0.75;
+      const botPoints = botCorrect ? Math.round(q.points * 0.9) : 0;
+      setBotScore((prev) => prev + botPoints);
+    }
+
+    // Check game over conditions
+    const shouldEndRoyale = mode === 'SURVIVAL_ROYALE' && nextUserLives === 0;
+
+    if (!shouldEndRoyale && qIndex + 1 < activeQuiz.questions.length) {
       startQuestion(activeQuiz, qIndex + 1);
     } else {
-      sound.playVictory();
+      if (mode === 'SURVIVAL_ROYALE' && nextUserLives > 0) {
+        sound.playRoyaleVictory();
+      } else {
+        sound.playVictory();
+      }
       setIsGameOver(true);
     }
   };
@@ -185,10 +244,33 @@ function SoloGameContent() {
   const currentQ = quiz.questions[currentIdx];
 
   if (isGameOver) {
-    const soloPlayers: Player[] = [
-      { id: 'user', nickname: 'You (Player)', avatar: 'v_eye', score: userScore, streak: 0, answers: userAnswers },
-      { id: 'grok_bot', nickname: 'Computer (AI)', avatar: 'v_bot', score: botScore, streak: 0 },
-    ];
+    const soloPlayers: Player[] = mode === 'SURVIVAL_ROYALE'
+      ? [
+          {
+            id: 'user',
+            nickname: 'You (Player)',
+            avatar: 'v_eye',
+            score: userScore,
+            streak: 0,
+            lives: userLives,
+            isEliminated: userLives === 0,
+            answers: userAnswers,
+          },
+          ...aiBots.map((bot) => ({
+            id: bot.id,
+            nickname: bot.nickname,
+            avatar: bot.avatar,
+            score: bot.score,
+            streak: 0,
+            lives: bot.lives,
+            isEliminated: bot.isEliminated,
+          })),
+        ]
+      : [
+          { id: 'user', nickname: 'You (Player)', avatar: 'v_eye', score: userScore, streak: 0, answers: userAnswers },
+          { id: 'grok_bot', nickname: 'Computer (AI)', avatar: 'v_bot', score: botScore, streak: 0 },
+        ];
+
     return (
       <div className="flex-1 max-w-4xl mx-auto w-full flex flex-col items-center justify-center p-4 gap-6">
         <Podium
@@ -199,6 +281,8 @@ function SoloGameContent() {
             setUserScore(0);
             setBotScore(0);
             setStreak(0);
+            setUserLives(3);
+            setAiBots((prev) => prev.map((b) => ({ ...b, score: 0, lives: 3, isEliminated: false })));
             setUserAnswers({});
             setIsGameOver(false);
             fetchDefaultQuiz();
@@ -216,58 +300,127 @@ function SoloGameContent() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 flex flex-col justify-between flex-1 gap-4 w-full">
-      {/* Score Header */}
-      <div className="flex items-center justify-between bg-white border-2 border-zinc-900 p-3 rounded-none shadow-sm">
-        <button
-          onClick={() => router.push('/')}
-          className="p-1.5 bg-zinc-100 hover:bg-zinc-200 border border-zinc-900 text-zinc-900 transition-colors rounded-none"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </button>
-
-        {/* Scoreboard */}
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
-            <VectorAvatar id="v_eye" size="sm" />
-            <div>
-              <span className="text-[9px] font-mono text-zinc-500 uppercase font-bold block">You</span>
-              <span className="text-sm font-bold text-zinc-950 font-mono">{userScore.toLocaleString()}</span>
-            </div>
-          </div>
-
-          <span className="text-zinc-400 font-mono font-black text-xs">VS</span>
-
-          <div className="flex items-center gap-2">
-            <div>
-              <span className="text-[9px] font-mono text-purple-700 uppercase font-bold block text-right">Computer</span>
-              <span className="text-sm font-bold text-purple-900 font-mono text-right">{botScore.toLocaleString()}</span>
-            </div>
-            <VectorAvatar id="v_bot" size="sm" />
-          </div>
-        </div>
-
-        {/* Timer & Fast Forward */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 px-2.5 py-1 bg-zinc-100 text-zinc-950 font-mono font-bold text-xs border border-zinc-900 rounded-none">
-            <Timer className="w-3.5 h-3.5" />
-            <span>{timeLeft}s</span>
-          </div>
+      {/* Score & Health Header */}
+      <div className="flex flex-col gap-2 bg-white border-2 border-zinc-900 p-3 rounded-none shadow-sm">
+        <div className="flex items-center justify-between">
           <button
-            onClick={() => advanceQuestion(selectedOption, quiz, currentIdx)}
-            className="flex items-center gap-1 px-2.5 py-1 bg-zinc-950 hover:bg-blue-600 text-white font-mono font-bold text-xs uppercase border border-zinc-900 rounded-none"
-            title="Skip to next question"
+            onClick={() => router.push('/')}
+            className="p-1.5 bg-zinc-100 hover:bg-zinc-200 border border-zinc-900 text-zinc-950 transition-colors rounded-none"
+            title="Return Home"
           >
-            <span>Skip</span>
-            <FastForward className="w-3 h-3" />
+            <ArrowLeft className="w-4 h-4" />
           </button>
+
+          {/* Mode Switcher Tabs */}
+          <div className="flex border border-zinc-900 p-0.5 bg-zinc-100 gap-1">
+            <button
+              type="button"
+              onClick={() => { sound.playClick(); setMode('CLASSIC'); }}
+              className={`px-2 py-0.5 text-[10px] font-mono font-bold uppercase transition-all ${
+                mode === 'CLASSIC' ? 'bg-zinc-950 text-white' : 'text-zinc-600 hover:text-zinc-950'
+              }`}
+            >
+              1v1 Duel
+            </button>
+            <button
+              type="button"
+              onClick={() => { sound.playClick(); setMode('SURVIVAL_ROYALE'); }}
+              className={`px-2 py-0.5 text-[10px] font-mono font-bold uppercase transition-all flex items-center gap-1 ${
+                mode === 'SURVIVAL_ROYALE' ? 'bg-rose-600 text-white' : 'text-rose-700 hover:text-rose-950'
+              }`}
+            >
+              <span>💀 Royale 5-Bots</span>
+            </button>
+          </div>
+
+          {/* Timer & Fast Forward */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 px-2.5 py-1 bg-zinc-100 text-zinc-950 font-mono font-bold text-xs border border-zinc-900 rounded-none">
+              <Timer className="w-3.5 h-3.5" />
+              <span>{timeLeft}s</span>
+            </div>
+            <button
+              onClick={() => advanceQuestion(selectedOption, quiz, currentIdx)}
+              className="flex items-center gap-1 px-2.5 py-1 bg-zinc-950 hover:bg-blue-600 text-white font-mono font-bold text-xs uppercase border border-zinc-900 rounded-none"
+              title="Skip to next question"
+            >
+              <span>Skip</span>
+              <FastForward className="w-3 h-3" />
+            </button>
+          </div>
         </div>
+
+        {/* Scoreboard / Competitors Roster */}
+        {mode === 'SURVIVAL_ROYALE' ? (
+          <div className="flex flex-col gap-1.5 pt-2 border-t border-zinc-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <VectorAvatar id="v_eye" size="sm" />
+                <span className="font-mono font-bold text-xs text-zinc-950">You</span>
+                <span className="text-xs font-black text-rose-600">
+                  {userLives > 0 ? '❤️'.repeat(userLives) : '💀 ELIMINATED'}
+                </span>
+                <span className="text-xs font-mono font-bold text-zinc-600">({userScore.toLocaleString()} pts)</span>
+              </div>
+
+              <span className="text-[10px] font-mono font-black text-rose-700 uppercase">
+                ⚔️ {1 + aiBots.filter((b) => !b.isEliminated).length} / 6 Surviving
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              <span className="text-[9px] font-mono text-zinc-400 uppercase mr-1">AI Opponents:</span>
+              {aiBots.map((bot) => (
+                <div
+                  key={bot.id}
+                  className={`flex items-center gap-1 px-1.5 py-0.5 border text-[10px] font-mono font-bold rounded-none ${
+                    bot.isEliminated
+                      ? 'bg-zinc-200 border-zinc-300 text-zinc-400 line-through opacity-50'
+                      : 'bg-zinc-50 border-zinc-300 text-zinc-800'
+                  }`}
+                >
+                  <VectorAvatar id={bot.avatar} size="sm" />
+                  <span>{bot.nickname}</span>
+                  <span className="text-[9px] not-italic">{bot.isEliminated ? '💀' : '❤️'.repeat(bot.lives)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center gap-6 pt-1 border-t border-zinc-200">
+            <div className="flex items-center gap-2">
+              <VectorAvatar id="v_eye" size="sm" />
+              <div>
+                <span className="text-[9px] font-mono text-zinc-500 uppercase font-bold block">You</span>
+                <span className="text-sm font-bold text-zinc-950 font-mono">{userScore.toLocaleString()}</span>
+              </div>
+            </div>
+
+            <span className="text-zinc-400 font-mono font-black text-xs">VS</span>
+
+            <div className="flex items-center gap-2">
+              <div>
+                <span className="text-[9px] font-mono text-purple-700 uppercase font-bold block text-right">Computer</span>
+                <span className="text-sm font-bold text-purple-900 font-mono text-right">{botScore.toLocaleString()}</span>
+              </div>
+              <VectorAvatar id="v_bot" size="sm" />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Question Card */}
       <div className="bg-white border-2 border-zinc-900 p-6 sm:p-8 text-center rounded-none shadow-sm flex flex-col items-center justify-center min-h-[140px]">
-        <span className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest mb-1">
-          Question {currentIdx + 1} of {quiz.questions.length}
-        </span>
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest">
+            Question {currentIdx + 1} of {quiz.questions.length}
+          </span>
+          {mode === 'SURVIVAL_ROYALE' && (
+            <span className="text-[8px] font-mono font-black px-1.5 py-0.2 bg-rose-100 text-rose-950 border border-rose-900 uppercase">
+              Sudden Death
+            </span>
+          )}
+        </div>
         <h2 className="text-lg sm:text-2xl font-mono font-black text-zinc-950 leading-snug uppercase">
           <MathText text={currentQ.question} />
         </h2>
@@ -303,7 +456,9 @@ function SoloGameContent() {
 
       {/* Footer info */}
       <div className="text-center text-[10px] font-mono text-zinc-400">
-        Answers and verified solutions will be revealed on the final podium.
+        {mode === 'SURVIVAL_ROYALE'
+          ? 'Wrong answers cost 1 Heart (❤️). Outlast all 5 AI bots to achieve Victory Royale!'
+          : 'Answers and verified solutions will be revealed on the final podium.'}
       </div>
     </div>
   );

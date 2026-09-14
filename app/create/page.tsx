@@ -5,9 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Sparkles, Play, Plus, Trash2, Check, BrainCircuit, RefreshCw,
   ArrowLeft, Clock, Users, Copy, FileText, Bot, Edit3, AlertCircle, CheckCheck,
-  ExternalLink, ClipboardPaste, CheckCircle2, ChevronRight
+  ExternalLink, ClipboardPaste, CheckCircle2, ChevronRight, Trophy, Heart, Skull, Swords
 } from 'lucide-react';
-import { Quiz, QuizQuestion } from '@/types/quiz';
+import { Quiz, QuizQuestion, GameMode } from '@/types/quiz';
 import { sound } from '@/lib/audio/soundEngine';
 import { getRoomManager, createInitialRoom } from '@/lib/store/gameStore';
 import { AuthService } from '@/lib/auth/authStore';
@@ -51,6 +51,10 @@ function QuizCreateContent() {
   const [tone, setTone] = useState<'scholarly' | 'humorous' | 'sarcastic' | 'energetic'>('scholarly');
   const [timePerQuestion, setTimePerQuestion] = useState<number>(15);
   const [customInstructions, setCustomInstructions] = useState<string>('');
+
+  // Game Mode & Survival Rules
+  const [gameMode, setGameMode] = useState<GameMode>('CLASSIC');
+  const [startingHearts, setStartingHearts] = useState<number>(3);
 
   // Mode: Prompt & Import States
   const [copiedPrompt, setCopiedPrompt] = useState(false);
@@ -283,6 +287,8 @@ function QuizCreateContent() {
 
     const normalizedQuiz: Quiz = {
       ...currentQuiz,
+      gameMode,
+      startingHearts: gameMode === 'SURVIVAL_ROYALE' ? startingHearts : undefined,
       questions: currentQuiz.questions.map((q) => ({
         ...q,
         timeLimit: q.timeLimit && q.timeLimit > 0 ? q.timeLimit : (timePerQuestion || 15),
@@ -302,7 +308,9 @@ function QuizCreateContent() {
       currentUser?.id,
       currentUser?.name,
       maxCandidates,
-      timePerQuestion
+      timePerQuestion,
+      gameMode,
+      startingHearts
     );
     const manager = getRoomManager(roomCode);
     manager.saveRoom(room);
@@ -316,6 +324,8 @@ function QuizCreateContent() {
 
     const normalizedQuiz: Quiz = {
       ...currentQuiz,
+      gameMode,
+      startingHearts: gameMode === 'SURVIVAL_ROYALE' ? startingHearts : undefined,
       questions: currentQuiz.questions.map((q) => ({
         ...q,
         timeLimit: q.timeLimit && q.timeLimit > 0 ? q.timeLimit : (timePerQuestion || 15),
@@ -323,7 +333,7 @@ function QuizCreateContent() {
     };
 
     sessionStorage.setItem('quizpulse_solo_quiz', JSON.stringify(normalizedQuiz));
-    router.push('/solo?from=studio');
+    router.push(`/solo?from=studio&mode=${gameMode}`);
   };
 
   return (
@@ -807,6 +817,97 @@ function QuizCreateContent() {
               <Plus className="w-3.5 h-3.5" />
               <span>Add Question</span>
             </button>
+          </div>
+
+          {/* Game Mode Selector Card */}
+          <div className="bg-white border-2 border-zinc-900 p-3.5 rounded-none shadow-sm flex flex-col gap-2.5">
+            <div className="flex items-center justify-between pb-1.5 border-b border-zinc-200">
+              <span className="text-xs font-mono font-black text-zinc-950 uppercase flex items-center gap-1.5">
+                <Swords className="w-3.5 h-3.5 text-zinc-950" />
+                <span>Arena Game Mode</span>
+              </span>
+              <span className="text-[10px] font-mono text-zinc-500">
+                {gameMode === 'SURVIVAL_ROYALE' ? 'Elimination / Last Player Standing' : 'Points / Speed Leaderboard'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => { sound.playClick(); setGameMode('CLASSIC'); }}
+                className={`p-2.5 border-2 text-left rounded-none font-mono transition-all flex flex-col gap-1 ${
+                  gameMode === 'CLASSIC'
+                    ? 'bg-zinc-950 text-white border-zinc-950 shadow-sm'
+                    : 'bg-zinc-50 hover:bg-zinc-100 border-zinc-300 text-zinc-800'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase flex items-center gap-1.5">
+                    <Trophy className={`w-3.5 h-3.5 ${gameMode === 'CLASSIC' ? 'text-amber-400' : 'text-zinc-600'}`} />
+                    <span>Classic Points Arena</span>
+                  </span>
+                  {gameMode === 'CLASSIC' && (
+                    <span className="text-[9px] bg-white text-zinc-950 px-1 py-0.2 font-black uppercase">Active</span>
+                  )}
+                </div>
+                <p className={`text-[10px] ${gameMode === 'CLASSIC' ? 'text-zinc-300' : 'text-zinc-500'}`}>
+                  Standard trivia scoring based on answer accuracy, response speed, and winning streaks.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { sound.playClick(); setGameMode('SURVIVAL_ROYALE'); }}
+                className={`p-2.5 border-2 text-left rounded-none font-mono transition-all flex flex-col gap-1 ${
+                  gameMode === 'SURVIVAL_ROYALE'
+                    ? 'bg-rose-950 text-white border-rose-900 shadow-sm'
+                    : 'bg-rose-50/50 hover:bg-rose-50 border-rose-300 text-rose-950'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase flex items-center gap-1.5">
+                    <Skull className={`w-3.5 h-3.5 ${gameMode === 'SURVIVAL_ROYALE' ? 'text-rose-400' : 'text-rose-700'}`} />
+                    <span>Survival Battle Royale</span>
+                  </span>
+                  {gameMode === 'SURVIVAL_ROYALE' && (
+                    <span className="text-[9px] bg-rose-500 text-white px-1 py-0.2 font-black uppercase">Active</span>
+                  )}
+                </div>
+                <p className={`text-[10px] ${gameMode === 'SURVIVAL_ROYALE' ? 'text-rose-200' : 'text-rose-800'}`}>
+                  Sudden death! Candidates lose hearts (❤️❤️❤️) on mistakes. Last player standing wins!
+                </p>
+              </button>
+            </div>
+
+            {/* Survival Hearts Selector (if Royale active) */}
+            {gameMode === 'SURVIVAL_ROYALE' && (
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-2 bg-rose-50 border border-rose-900 text-xs font-mono">
+                <span className="text-[10px] font-bold uppercase text-rose-950 flex items-center gap-1">
+                  <Heart className="w-3.5 h-3.5 fill-rose-600 text-rose-600" />
+                  <span>Starting Lives per Candidate:</span>
+                </span>
+                <div className="flex gap-1.5">
+                  {[
+                    { label: '1 Heart (Hardcore)', hearts: 1 },
+                    { label: '3 Hearts (Standard)', hearts: 3 },
+                    { label: '5 Hearts (Endurance)', hearts: 5 },
+                  ].map((h) => (
+                    <button
+                      key={h.hearts}
+                      type="button"
+                      onClick={() => { sound.playClick(); setStartingHearts(h.hearts); }}
+                      className={`px-2.5 py-1 text-[10px] font-mono font-bold uppercase border rounded-none ${
+                        startingHearts === h.hearts
+                          ? 'bg-rose-900 text-white border-rose-950'
+                          : 'bg-white text-rose-950 border-rose-300 hover:bg-rose-100'
+                      }`}
+                    >
+                      {h.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Optional Host Settings (Auto-Start & Player Limit) */}

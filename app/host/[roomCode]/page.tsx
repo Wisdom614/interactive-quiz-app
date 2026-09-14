@@ -6,7 +6,8 @@ import { QRCodeSVG } from 'qrcode.react';
 import {
   Users, Play, Sparkles, Timer, CheckCircle2, XCircle,
   ArrowRight, Flame, Trophy, Copy, Check, Terminal, AlertCircle, BarChart3,
-  Triangle, Diamond, Circle, Square, Clock, Share2, FastForward, StopCircle
+  Triangle, Diamond, Circle, Square, Clock, Share2, FastForward, StopCircle,
+  Heart, Skull, Swords
 } from 'lucide-react';
 import { GameRoom, GameState, Player, BroadcastEvent } from '@/types/quiz';
 import { getRoomManager } from '@/lib/store/gameStore';
@@ -275,6 +276,8 @@ export default function HostGamePage() {
         const player = prev.players[event.playerId];
         if (!player) return prev;
 
+        const isRoyale = prev.gameMode === 'SURVIVAL_ROYALE' || prev.quiz?.gameMode === 'SURVIVAL_ROYALE';
+        const defaultHearts = prev.startingHearts || prev.quiz?.startingHearts || 3;
         const currentQ = prev.quiz.questions[event.questionIndex];
         const isCorrect = event.selectedIndex === currentQ?.correctIndex;
         
@@ -283,6 +286,20 @@ export default function HostGamePage() {
         const speedBonus = Math.round(timeFraction * 500);
         const streakBonus = isCorrect ? (player.streak || 0) * 100 : 0;
         const pointsEarned = isCorrect ? ((currentQ?.points || 1000) + speedBonus + streakBonus) : 0;
+
+        // Royale Lives Calculation
+        let updatedLives = player.lives !== undefined ? player.lives : defaultHearts;
+        let isEliminated = player.isEliminated || false;
+
+        if (isRoyale && !isCorrect && !isEliminated) {
+          updatedLives = Math.max(0, updatedLives - 1);
+          if (updatedLives === 0) {
+            isEliminated = true;
+            sound.playEliminated();
+          } else {
+            sound.playHeartBreak();
+          }
+        }
 
         const answerRecord = {
           questionIndex: event.questionIndex,
@@ -304,6 +321,9 @@ export default function HostGamePage() {
           ...player,
           score: authoritativeScore,
           streak: isCorrect ? (player.streak || 0) + 1 : 0,
+          lives: isRoyale ? updatedLives : undefined,
+          isEliminated: isRoyale ? isEliminated : undefined,
+          eliminatedAtQuestion: isEliminated && !player.isEliminated ? event.questionIndex : player.eliminatedAtQuestion,
           lastAnswer: answerRecord,
           answers: updatedAnswers,
         };
@@ -318,6 +338,18 @@ export default function HostGamePage() {
         const totalAnswered = Object.values(updatedPlayers).filter(
           (p) => p.lastAnswer?.questionIndex === prev.currentQuestionIndex
         ).length;
+
+        // Battle Royale Sudden Death Check: If only 1 survivor remains among 2+ players
+        if (isRoyale && totalPlayers > 1) {
+          const alive = Object.values(updatedPlayers).filter((p) => !p.isEliminated && (p.lives === undefined || p.lives > 0));
+          if (alive.length <= 1) {
+            if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
+            autoAdvanceTimerRef.current = setTimeout(() => {
+              finishGame();
+            }, 1200);
+            return updatedRoom;
+          }
+        }
 
         if (totalPlayers > 0 && totalAnswered >= totalPlayers) {
           // Schedule auto-advance in 1.5s
@@ -589,6 +621,11 @@ export default function HostGamePage() {
   ).length;
   const answeredPercent = playersList.length > 0 ? Math.round((answeredCount / playersList.length) * 100) : 0;
 
+  const isRoyale = room.gameMode === 'SURVIVAL_ROYALE' || room.quiz?.gameMode === 'SURVIVAL_ROYALE';
+  const defaultHearts = room.startingHearts || room.quiz?.startingHearts || 3;
+  const alivePlayers = playersList.filter((p) => !p.isEliminated && (p.lives === undefined || p.lives > 0));
+  const eliminatedPlayers = playersList.filter((p) => p.isEliminated || (p.lives !== undefined && p.lives <= 0));
+
   return (
     <div className="relative flex-1 flex flex-col items-center justify-between p-4 sm:p-6 min-h-[calc(100vh-3.5rem)] max-w-5xl mx-auto w-full">
       
@@ -617,12 +654,20 @@ export default function HostGamePage() {
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-zinc-100 border-2 border-zinc-900 text-xs font-mono font-bold uppercase mb-2 rounded-none">
               <span className="w-2 h-2 bg-emerald-600 rounded-none" />
               <span>Host Presentation Screen</span>
+              {isRoyale && (
+                <span className="ml-1 px-2 py-0.2 bg-rose-600 text-white border border-rose-900 text-[10px] font-black uppercase flex items-center gap-1">
+                  <Skull className="w-3 h-3" />
+                  <span>Battle Royale ({defaultHearts} ❤️)</span>
+                </span>
+              )}
             </div>
             <h1 className="text-2xl sm:text-4xl font-black font-mono text-zinc-950 uppercase tracking-tight">
               {room.quiz.title}
             </h1>
             <p className="text-xs font-mono text-zinc-600 mt-1 mb-2">
-              {room.quiz.questions.length} Questions &bull; Answers revealed upon completion
+              {isRoyale
+                ? `Sudden Death Survival • ${defaultHearts} Hearts • Last Candidate Standing Wins`
+                : `${room.quiz.questions.length} Questions • Answers revealed upon completion`}
             </p>
 
             {/* Questions Preload Confirmation */}
@@ -817,6 +862,12 @@ export default function HostGamePage() {
                 <span className="font-mono font-bold text-zinc-950 text-xs uppercase">
                   Connected Candidates ({playersList.length}{room.maxCandidates ? ` / ${room.maxCandidates}` : ''})
                 </span>
+                {isRoyale && (
+                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 bg-rose-100 border border-rose-900 text-rose-950 uppercase flex items-center gap-1">
+                    <Heart className="w-3 h-3 fill-rose-600 text-rose-600" />
+                    <span>{defaultHearts} Lives Active</span>
+                  </span>
+                )}
                 {room.maxCandidates && playersList.length >= room.maxCandidates && (
                   <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 bg-rose-100 border border-rose-900 text-rose-950 uppercase">
                     CAPACITY REACHED
@@ -847,6 +898,11 @@ export default function HostGamePage() {
                   >
                     <VectorAvatar id={p.avatar || 'v_zap'} size="sm" />
                     <span>{p.nickname}</span>
+                    {isRoyale && (
+                      <span className="text-[9px] text-rose-600 font-black">
+                        {'❤️'.repeat(p.lives !== undefined ? p.lives : defaultHearts)}
+                      </span>
+                    )}
                   </div>
                 ))
               )}
@@ -856,7 +912,7 @@ export default function HostGamePage() {
       )}
 
       {/* ============================================================ */}
-      {/* 2. QUESTION SCREEN (WITH INSTANT ADVANCE & LIVE ROSTER)     */}
+      {/* 2. QUESTION SCREEN (WITH SURVIVAL HUD & LIVE ROSTER)        */}
       {/* ============================================================ */}
       {room.status === 'QUESTION' && currentQ && (
         <div
@@ -876,9 +932,20 @@ export default function HostGamePage() {
                   <span>{timeLeft}s</span>
                 </div>
 
-                <span className="text-xs font-mono text-zinc-600 font-bold hidden sm:inline">
-                  {answeredCount} / {playersList.length} Answered ({answeredPercent}%)
-                </span>
+                {isRoyale ? (
+                  <div className="flex items-center gap-2 font-mono text-xs font-bold">
+                    <span className="px-2 py-0.5 bg-emerald-100 border border-emerald-900 text-emerald-950">
+                      ⚔️ {alivePlayers.length} ALIVE
+                    </span>
+                    <span className="px-2 py-0.5 bg-rose-100 border border-rose-900 text-rose-950">
+                      💀 {eliminatedPlayers.length} SPECTATORS
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-xs font-mono text-zinc-600 font-bold hidden sm:inline">
+                    {answeredCount} / {playersList.length} Answered ({answeredPercent}%)
+                  </span>
+                )}
               </div>
 
               {/* Creator Navigation Controls */}
@@ -913,29 +980,43 @@ export default function HostGamePage() {
               />
             </div>
 
-            {/* Live Candidate Answer Status Strip */}
+            {/* Live Candidate Answer & Heart Status Strip */}
             {playersList.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-zinc-200">
                 <span className="text-[10px] font-mono font-bold uppercase text-zinc-500 mr-1">
-                  Candidate Responses ({answeredCount}/{playersList.length}):
+                  Candidate Roster:
                 </span>
                 {playersList.map((p) => {
                   const hasAnswered = p.lastAnswer?.questionIndex === room.currentQuestionIndex;
+                  const isAlive = !p.isEliminated && (p.lives === undefined || p.lives > 0);
+                  const currentLives = p.lives !== undefined ? p.lives : defaultHearts;
+
                   return (
                     <div
                       key={p.id}
-                      className={`flex items-center gap-1 px-2 py-0.5 border text-[10px] font-mono font-bold rounded-none ${
-                        hasAnswered
+                      className={`flex items-center gap-1 px-2 py-0.5 border text-[10px] font-mono font-bold rounded-none transition-all ${
+                        !isAlive
+                          ? 'bg-zinc-200 border-zinc-400 text-zinc-500 line-through opacity-60'
+                          : hasAnswered
                           ? 'bg-emerald-50 border-emerald-800 text-emerald-950'
-                          : 'bg-zinc-50 border-zinc-300 text-zinc-500'
+                          : 'bg-zinc-50 border-zinc-300 text-zinc-600'
                       }`}
                     >
                       <VectorAvatar id={p.avatar || 'v_zap'} size="sm" />
                       <span>{p.nickname}</span>
-                      {hasAnswered ? (
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                      ) : (
-                        <span className="text-[8px] opacity-60">⏳</span>
+                      
+                      {isRoyale && (
+                        <span className="text-[9px] font-black not-italic ml-0.5">
+                          {isAlive ? '❤️'.repeat(currentLives) : '💀'}
+                        </span>
+                      )}
+
+                      {isAlive && (
+                        hasAnswered ? (
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600 ml-0.5" />
+                        ) : (
+                          <span className="text-[8px] opacity-60 ml-0.5">⏳</span>
+                        )
                       )}
                     </div>
                   );
