@@ -283,10 +283,10 @@ export default function HomePage() {
               </div>
             </div>
             <h3 className="text-lg font-mono font-bold text-white tracking-tight mb-1 uppercase">
-              Checkers Arena 1v1
+              Cameroon & African Draughts (1v1)
             </h3>
             <p className="text-xs font-mono text-slate-400 mb-5 leading-relaxed">
-              Play real-time 1v1 online draughts with friends, challenge the Minimax AI bot, or try the fast-paced <strong>Trivia Clash</strong> mode.
+              Play authentic African style draughts (Dames) featuring <strong>Flying Kings</strong> & <strong>backward captures</strong> against friends or tactical AI bots.
             </p>
             <div className="flex flex-wrap gap-2">
               <Link

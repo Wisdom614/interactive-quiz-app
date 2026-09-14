@@ -360,12 +360,14 @@ export default function CheckersLobbyPage() {
         </div>
 
         {/* Quick Rules Footer Card */}
-        <div className="w-full max-w-xl mt-6 p-4 rounded-2xl bg-slate-900/40 border border-slate-800/50 flex items-center justify-between text-xs text-slate-400">
+        <div className="w-full max-w-xl mt-6 p-4 rounded-2xl bg-slate-900/40 border border-slate-800/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-slate-400">
           <div className="flex items-center gap-2.5">
-            <HelpCircle className="w-4 h-4 text-slate-400" />
-            <span>Standard 8x8 rules • Forced jumps • Kings move in all 4 diagonals</span>
+            <HelpCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+            <span>Backward captures for men • Flying Kings (long-range moves & jumps)</span>
           </div>
-          <span className="text-[11px] font-semibold text-slate-400">American Draughts</span>
+          <span className="text-[11px] font-bold text-amber-300/90 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+            Cameroon & African Draughts (Dames)
+          </span>
         </div>
       </div>
 

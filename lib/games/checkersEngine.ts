@@ -103,27 +103,57 @@ export function getLegalMoves(
 
 function getPieceRegularMoves(board: BoardState, from: Position, piece: Piece): Move[] {
   const moves: Move[] = [];
-  const directions: number[][] = [];
 
   if (piece === 'r') {
-    directions.push([-1, -1], [-1, 1]); // Red moves UP (decreasing row)
+    // Red regular moves forward-diagonally (decreasing row)
+    const directions = [[-1, -1], [-1, 1]];
+    for (const [dr, dc] of directions) {
+      const nr = from.row + dr;
+      const nc = from.col + dc;
+      if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && board[nr][nc] === null) {
+        moves.push({
+          from,
+          to: { row: nr, col: nc },
+          isKingPromotion: nr === 0,
+        });
+      }
+    }
   } else if (piece === 'b') {
-    directions.push([1, -1], [1, 1]); // Black moves DOWN (increasing row)
+    // Black regular moves forward-diagonally (increasing row)
+    const directions = [[1, -1], [1, 1]];
+    for (const [dr, dc] of directions) {
+      const nr = from.row + dr;
+      const nc = from.col + dc;
+      if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && board[nr][nc] === null) {
+        moves.push({
+          from,
+          to: { row: nr, col: nc },
+          isKingPromotion: nr === 7,
+        });
+      }
+    }
   } else if (piece === 'R' || piece === 'B') {
-    directions.push([-1, -1], [-1, 1], [1, -1], [1, 1]); // Kings move all 4 diagonals
-  }
+    // Flying King (Cameroon/African style): can slide any distance along all 4 diagonal lines
+    const directions = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+    for (const [dr, dc] of directions) {
+      let step = 1;
+      while (true) {
+        const nr = from.row + dr * step;
+        const nc = from.col + dc * step;
+        if (nr < 0 || nr >= 8 || nc < 0 || nc >= 8) break;
 
-  for (const [dr, dc] of directions) {
-    const nr = from.row + dr;
-    const nc = from.col + dc;
-
-    if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && board[nr][nc] === null) {
-      const isKingPromotion = (piece === 'r' && nr === 0) || (piece === 'b' && nr === 7);
-      moves.push({
-        from,
-        to: { row: nr, col: nc },
-        isKingPromotion,
-      });
+        if (board[nr][nc] === null) {
+          moves.push({
+            from,
+            to: { row: nr, col: nc },
+            isKingPromotion: false,
+          });
+        } else {
+          // Blocked by a piece
+          break;
+        }
+        step++;
+      }
     }
   }
 
@@ -132,37 +162,80 @@ function getPieceRegularMoves(board: BoardState, from: Position, piece: Piece): 
 
 function getPieceJumps(board: BoardState, from: Position, piece: Piece): Move[] {
   const jumps: Move[] = [];
-  const directions: number[][] = [];
   const isRed = piece === 'r' || piece === 'R';
+  const isKingPiece = piece === 'R' || piece === 'B';
+  const directions = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
 
-  if (piece === 'r') {
-    directions.push([-1, -1], [-1, 1]);
-  } else if (piece === 'b') {
-    directions.push([1, -1], [1, 1]);
-  } else if (piece === 'R' || piece === 'B') {
-    directions.push([-1, -1], [-1, 1], [1, -1], [1, 1]);
-  }
+  if (!isKingPiece) {
+    // Cameroon/African Draughts: Regular pieces can capture both FORWARDS and BACKWARDS
+    for (const [dr, dc] of directions) {
+      const midR = from.row + dr;
+      const midC = from.col + dc;
+      const destR = from.row + dr * 2;
+      const destC = from.col + dc * 2;
 
-  for (const [dr, dc] of directions) {
-    const midR = from.row + dr;
-    const midC = from.col + dc;
-    const destR = from.row + dr * 2;
-    const destC = from.col + dc * 2;
+      if (destR >= 0 && destR < 8 && destC >= 0 && destC < 8) {
+        const midPiece = board[midR][midC];
+        const destPiece = board[destR][destC];
 
-    if (destR >= 0 && destR < 8 && destC >= 0 && destC < 8) {
-      const midPiece = board[midR][midC];
-      const destPiece = board[destR][destC];
+        if (midPiece && destPiece === null) {
+          const isMidOpponent = isRed ? (midPiece === 'b' || midPiece === 'B') : (midPiece === 'r' || midPiece === 'R');
+          if (isMidOpponent) {
+            const isKingPromotion = (piece === 'r' && destR === 0) || (piece === 'b' && destR === 7);
+            jumps.push({
+              from,
+              to: { row: destR, col: destC },
+              captures: [{ row: midR, col: midC }],
+              isKingPromotion,
+            });
+          }
+        }
+      }
+    }
+  } else {
+    // Flying King Captures (Cameroon/African style):
+    // King can jump an opponent at any distance on a diagonal and land on any vacant square behind it!
+    for (const [dr, dc] of directions) {
+      let step = 1;
+      let foundOpponent: Position | null = null;
 
-      if (midPiece && destPiece === null) {
-        const isMidOpponent = isRed ? (midPiece === 'b' || midPiece === 'B') : (midPiece === 'r' || midPiece === 'R');
-        if (isMidOpponent) {
-          const isKingPromotion = (piece === 'r' && destR === 0) || (piece === 'b' && destR === 7);
-          jumps.push({
-            from,
-            to: { row: destR, col: destC },
-            captures: [{ row: midR, col: midC }],
-            isKingPromotion,
-          });
+      while (true) {
+        const nr = from.row + dr * step;
+        const nc = from.col + dc * step;
+        if (nr < 0 || nr >= 8 || nc < 0 || nc >= 8) break;
+
+        const currentPiece = board[nr][nc];
+
+        if (!foundOpponent) {
+          if (currentPiece === null) {
+            // Empty space before opponent, continue sliding
+            step++;
+            continue;
+          }
+
+          const isOpponent = isRed ? (currentPiece === 'b' || currentPiece === 'B') : (currentPiece === 'r' || currentPiece === 'R');
+          if (isOpponent) {
+            foundOpponent = { row: nr, col: nc };
+            step++;
+            continue;
+          } else {
+            // Blocked by own piece
+            break;
+          }
+        } else {
+          // We have found an opponent, any subsequent empty squares are valid landing destinations
+          if (currentPiece === null) {
+            jumps.push({
+              from,
+              to: { row: nr, col: nc },
+              captures: [foundOpponent],
+              isKingPromotion: false,
+            });
+            step++;
+          } else {
+            // Blocked by another piece behind the opponent
+            break;
+          }
         }
       }
     }
