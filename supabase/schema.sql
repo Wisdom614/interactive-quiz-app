@@ -116,3 +116,43 @@ create policy "Allow all operations on checkers_rooms"
 
 alter publication supabase_realtime add table public.checkers_rooms;
 
+-- ==============================================================================
+-- 8. Blocus (Dots / Jeu des Points) Arena Rooms Table
+-- ==============================================================================
+create table if not exists public.blocus_rooms (
+  id text primary key,
+  room_code varchar(12) not null unique,
+  host_id text not null,
+  host_name text default 'Host',
+  host_avatar text default 'crown',
+  guest_id text,
+  guest_name text,
+  guest_avatar text default 'zap',
+  status text not null default 'LOBBY', -- 'LOBBY', 'STARTING', 'PLAYING', 'GAME_OVER'
+  countdown_started_at bigint,
+  scheduled_start_at bigint,
+  turn_timer_sec integer default 30,
+  win_target integer default 15,
+  grid_preset text default 'standard',
+  game_state jsonb,
+  current_turn text default 'blue',
+  winner text,
+  win_reason text,
+  move_history jsonb default '[]'::jsonb,
+  settings jsonb default '{}'::jsonb,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists idx_blocus_rooms_code on public.blocus_rooms(room_code);
+create index if not exists idx_blocus_rooms_status on public.blocus_rooms(status);
+
+alter table public.blocus_rooms enable row level security;
+
+drop policy if exists "Allow all operations on blocus_rooms" on public.blocus_rooms;
+create policy "Allow all operations on blocus_rooms"
+  on public.blocus_rooms for all
+  using (true)
+  with check (true);
+
+alter publication supabase_realtime add table public.blocus_rooms;

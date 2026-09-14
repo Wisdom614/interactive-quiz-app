@@ -404,7 +404,113 @@ class SoundEngine {
       osc.stop(startTime + 0.38);
     });
   }
+
+  // 15. Blocus (Dots): Paper Ballpoint Pen Press Click
+  public playPenDot() {
+    if (this.isMuted) return;
+    this.init();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+
+    // Fast ink tap click
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(800, now);
+    osc.frequency.exponentialRampToValueAtTime(180, now + 0.04);
+
+    gain.gain.setValueAtTime(0.24, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.05);
+  }
+
+  // 16. Blocus (Dots): Successful Enclosure Harmonic Resonance
+  public playEnclosureComplete() {
+    if (this.isMuted) return;
+    this.init();
+    if (!this.ctx) return;
+
+    // Harmonic minor 3rd to 5th chord (mysterious, triumphant loop closure)
+    const notes = [440, 523.25, 659.25, 880]; // A4, C5, E5, A5
+    notes.forEach((freq, idx) => {
+      if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const startTime = this.ctx.currentTime + idx * 0.06;
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, startTime);
+
+      gain.gain.setValueAtTime(0.22, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.4);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(startTime);
+      osc.stop(startTime + 0.42);
+    });
+  }
+
+  // 17. Blocus (Dots): Dramatic Recapture Fanfare (Territory Overthrow)
+  public playRecaptureFanfare() {
+    if (this.isMuted) return;
+    this.init();
+    if (!this.ctx) return;
+
+    const notes = [392, 523.25, 659.25, 783.99, 1046.5]; // G4, C5, E5, G5, C6
+    notes.forEach((freq, idx) => {
+      if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const startTime = this.ctx.currentTime + idx * 0.08;
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, startTime);
+
+      gain.gain.setValueAtTime(0.25, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.5);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(startTime);
+      osc.stop(startTime + 0.52);
+    });
+  }
+
+  // 18. Match Start Fanfare
+  public playStart() {
+    if (this.isMuted) return;
+    this.init();
+    if (!this.ctx) return;
+
+    const notes = [440, 554.37, 659.25]; // A4, C#5, E5
+    notes.forEach((freq, idx) => {
+      if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const startTime = this.ctx.currentTime + idx * 0.08;
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, startTime);
+      gain.gain.setValueAtTime(0.2, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.25);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(startTime);
+      osc.stop(startTime + 0.28);
+    });
+  }
 }
 
 export const sound = new SoundEngine();
-

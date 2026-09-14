@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Sparkles, Zap, Gamepad2, BrainCircuit, Menu, X, LayoutDashboard, Crown } from 'lucide-react';
+import { Sparkles, Zap, Gamepad2, BrainCircuit, Menu, X, LayoutDashboard, Crown, PenTool } from 'lucide-react';
 import { AudioToggle } from './AudioToggle';
 import { sound } from '@/lib/audio/soundEngine';
 import { AuthService } from '@/lib/auth/authStore';
@@ -36,6 +36,14 @@ export function Navbar() {
 
         {/* Desktop Navigation Links */}
         <nav className="hidden md:flex items-center gap-2">
+          <Link
+            href="/blocus"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-bold text-white bg-blue-600 hover:bg-blue-700 border-2 border-zinc-900 transition-all rounded-none active:translate-y-0.5 shadow-sm"
+          >
+            <PenTool className="w-3.5 h-3.5" />
+            <span>Blocus (Dots)</span>
+          </Link>
+
           <Link
             href="/checkers"
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-bold text-white bg-red-600 hover:bg-red-700 border-2 border-zinc-900 transition-all rounded-none active:translate-y-0.5 shadow-sm"
@@ -96,6 +104,18 @@ export function Navbar() {
       {/* Mobile Dropdown Menu Panel */}
       {isMobileMenuOpen && (
         <div className="md:hidden border-t-2 border-zinc-900 bg-white p-4 flex flex-col gap-2.5 shadow-md">
+          <Link
+            href="/blocus"
+            onClick={closeMenu}
+            className="flex items-center justify-between p-3 bg-blue-600 text-white font-mono font-bold text-xs uppercase border-2 border-zinc-900 rounded-none active:translate-y-0.5"
+          >
+            <div className="flex items-center gap-2">
+              <PenTool className="w-4 h-4 text-blue-200" />
+              <span>Blocus (Dots) Arena</span>
+            </div>
+            <span className="text-[10px] text-blue-200">New</span>
+          </Link>
+
           <Link
             href="/checkers"
             onClick={closeMenu}

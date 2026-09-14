@@ -64,18 +64,47 @@ create table if not exists public.checkers_rooms (
   updated_at timestamptz default now()
 );
 
--- 5. Fast Lookups Indexes
+-- 5. Blocus (Dots / Jeu des Points) Arena Rooms Table
+create table if not exists public.blocus_rooms (
+  id text primary key,
+  room_code varchar(12) not null unique,
+  host_id text not null,
+  host_name text default 'Host',
+  host_avatar text default 'crown',
+  guest_id text,
+  guest_name text,
+  guest_avatar text default 'zap',
+  status text not null default 'LOBBY', -- 'LOBBY', 'STARTING', 'PLAYING', 'GAME_OVER'
+  countdown_started_at bigint,
+  scheduled_start_at bigint,
+  turn_timer_sec integer default 30,
+  win_target integer default 15,
+  grid_preset text default 'standard',
+  game_state jsonb,
+  current_turn text default 'blue',
+  winner text,
+  win_reason text,
+  move_history jsonb default '[]'::jsonb,
+  settings jsonb default '{}'::jsonb,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- 6. Fast Lookups Indexes
 create index if not exists idx_quiz_rooms_room_code on public.quiz_rooms(room_code);
 create index if not exists idx_quiz_rooms_status on public.quiz_rooms(status);
 create index if not exists idx_quiz_rooms_creator_id on public.quiz_rooms(creator_id);
 create index if not exists idx_quizzes_creator_id on public.quizzes(creator_id);
 create index if not exists idx_checkers_rooms_code on public.checkers_rooms(room_code);
 create index if not exists idx_checkers_rooms_status on public.checkers_rooms(status);
+create index if not exists idx_blocus_rooms_code on public.blocus_rooms(room_code);
+create index if not exists idx_blocus_rooms_status on public.blocus_rooms(status);
 
--- 6. Row Level Security (RLS)
+-- 7. Row Level Security (RLS)
 alter table public.quizzes enable row level security;
 alter table public.quiz_rooms enable row level security;
 alter table public.checkers_rooms enable row level security;
+alter table public.blocus_rooms enable row level security;
 
 -- Drop existing policies if re-running
 drop policy if exists "Public and authenticated users can read quizzes" on public.quizzes;
@@ -83,6 +112,7 @@ drop policy if exists "Public and authenticated users can insert/update quizzes"
 drop policy if exists "Public and authenticated users can read rooms" on public.quiz_rooms;
 drop policy if exists "Public and authenticated users can insert/update rooms" on public.quiz_rooms;
 drop policy if exists "Allow all operations on checkers_rooms" on public.checkers_rooms;
+drop policy if exists "Allow all operations on blocus_rooms" on public.blocus_rooms;
 
 -- Allow read & write for multiplayer rooms
 create policy "Public and authenticated users can read quizzes"
@@ -106,6 +136,12 @@ create policy "Allow all operations on checkers_rooms"
   using (true)
   with check (true);
 
--- 7. Realtime Publication
+create policy "Allow all operations on blocus_rooms"
+  on public.blocus_rooms for all
+  using (true)
+  with check (true);
+
+-- 8. Realtime Publication
 alter publication supabase_realtime add table public.quiz_rooms;
 alter publication supabase_realtime add table public.checkers_rooms;
+alter publication supabase_realtime add table public.blocus_rooms;
