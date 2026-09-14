@@ -179,10 +179,10 @@ export default function CheckersLobbyPage() {
                           : 'bg-slate-800/50 border-slate-700/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
                       }`}
                     >
-                      <span>
-                        {diff === 'EASY' && '🌱 Novice'}
-                        {diff === 'MEDIUM' && '⚡ Tactician'}
-                        {diff === 'HARD' && '🧠 Grandmaster'}
+                      <span className="font-bold">
+                        {diff === 'EASY' && 'Novice'}
+                        {diff === 'MEDIUM' && 'Tactician'}
+                        {diff === 'HARD' && 'Grandmaster'}
                       </span>
                       <span className="text-[10px] font-normal opacity-70">
                         {diff === 'EASY' && 'Casual / Quick'}

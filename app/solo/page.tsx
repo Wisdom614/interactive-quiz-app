@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
   BrainCircuit, Sparkles, Timer, CheckCircle2, XCircle, Flame, Trophy,
   RotateCcw, ArrowRight, ArrowLeft, Bot, User, Zap,
-  Triangle, Diamond, Circle, Square, FastForward
+  Triangle, Diamond, Circle, Square, FastForward, Heart, Skull, Swords
 } from 'lucide-react';
 import { Quiz, QuizQuestion, Player } from '@/types/quiz';
 import { sound } from '@/lib/audio/soundEngine';
@@ -325,11 +325,12 @@ function SoloGameContent() {
             <button
               type="button"
               onClick={() => { sound.playClick(); setMode('SURVIVAL_ROYALE'); }}
-              className={`px-2 py-0.5 text-[10px] font-mono font-bold uppercase transition-all flex items-center gap-1 ${
+              className={`px-2 py-0.5 text-[10px] font-mono font-bold uppercase transition-all flex items-center gap-1.5 ${
                 mode === 'SURVIVAL_ROYALE' ? 'bg-rose-600 text-white' : 'text-rose-700 hover:text-rose-950'
               }`}
             >
-              <span>💀 Royale 5-Bots</span>
+              <Skull className="w-3 h-3" />
+              <span>Royale 5-Bots</span>
             </button>
           </div>
 
@@ -357,14 +358,28 @@ function SoloGameContent() {
               <div className="flex items-center gap-2">
                 <VectorAvatar id="v_eye" size="sm" />
                 <span className="font-mono font-bold text-xs text-zinc-950">You</span>
-                <span className="text-xs font-black text-rose-600">
-                  {userLives > 0 ? '❤️'.repeat(userLives) : '💀 ELIMINATED'}
-                </span>
+                <div className="flex items-center gap-1">
+                  {userLives > 0 ? (
+                    Array.from({ length: 3 }).map((_, i) => (
+                      <Heart
+                        key={i}
+                        className={`w-3.5 h-3.5 ${
+                          i < userLives ? 'fill-rose-600 text-rose-600' : 'fill-zinc-200 text-zinc-300'
+                        }`}
+                      />
+                    ))
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-xs font-mono font-bold text-zinc-500">
+                      <Skull className="w-3.5 h-3.5" /> ELIMINATED
+                    </span>
+                  )}
+                </div>
                 <span className="text-xs font-mono font-bold text-zinc-600">({userScore.toLocaleString()} pts)</span>
               </div>
 
-              <span className="text-[10px] font-mono font-black text-rose-700 uppercase">
-                ⚔️ {1 + aiBots.filter((b) => !b.isEliminated).length} / 6 Surviving
+              <span className="inline-flex items-center gap-1 text-[10px] font-mono font-black text-rose-700 uppercase">
+                <Swords className="w-3 h-3" />
+                <span>{1 + aiBots.filter((b) => !b.isEliminated).length} / 6 Surviving</span>
               </span>
             </div>
 
@@ -373,7 +388,7 @@ function SoloGameContent() {
               {aiBots.map((bot) => (
                 <div
                   key={bot.id}
-                  className={`flex items-center gap-1 px-1.5 py-0.5 border text-[10px] font-mono font-bold rounded-none ${
+                  className={`flex items-center gap-1.5 px-2 py-0.5 border text-[10px] font-mono font-bold rounded-none ${
                     bot.isEliminated
                       ? 'bg-zinc-200 border-zinc-300 text-zinc-400 line-through opacity-50'
                       : 'bg-zinc-50 border-zinc-300 text-zinc-800'
@@ -381,7 +396,15 @@ function SoloGameContent() {
                 >
                   <VectorAvatar id={bot.avatar} size="sm" />
                   <span>{bot.nickname}</span>
-                  <span className="text-[9px] not-italic">{bot.isEliminated ? '💀' : '❤️'.repeat(bot.lives)}</span>
+                  <div className="flex items-center gap-0.5">
+                    {bot.isEliminated ? (
+                      <Skull className="w-3 h-3 text-zinc-400" />
+                    ) : (
+                      Array.from({ length: bot.lives }).map((_, i) => (
+                        <Heart key={i} className="w-2.5 h-2.5 fill-rose-600 text-rose-600" />
+                      ))
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -457,7 +480,7 @@ function SoloGameContent() {
       {/* Footer info */}
       <div className="text-center text-[10px] font-mono text-zinc-400">
         {mode === 'SURVIVAL_ROYALE'
-          ? 'Wrong answers cost 1 Heart (❤️). Outlast all 5 AI bots to achieve Victory Royale!'
+          ? 'Wrong answers deduct lives. Outlast all 5 AI bots to achieve Victory Royale!'
           : 'Answers and verified solutions will be revealed on the final podium.'}
       </div>
     </div>

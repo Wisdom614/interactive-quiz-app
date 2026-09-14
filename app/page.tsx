@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Sparkles, Gamepad2, Zap, Trophy, BrainCircuit, Users, ArrowRight,
-  Flame, ShieldAlert, Cpu, Globe, Film, Code2, Atom, Terminal, Activity, Calculator, Crown
+  Flame, ShieldAlert, Cpu, Globe, Film, Code2, Atom, Terminal, Activity, Calculator, Crown,
+  Skull, Swords, Heart
 } from 'lucide-react';
 import { AvatarSelector } from '@/components/AvatarSelector';
 import { VECTOR_AVATARS } from '@/components/VectorAvatar';
@@ -243,7 +244,7 @@ export default function HomePage() {
               Play Solo & Battle Royale
             </h3>
             <p className="text-xs font-mono text-zinc-600 mb-5 leading-relaxed">
-              Test your speed in 1v1 practice or enter the <strong>Survival Royale</strong> ladder with 3 hearts (❤️❤️❤️) against 5 computer bots.
+              Test your speed in 1v1 practice or enter the <strong>Survival Royale</strong> ladder with 3 lives against 5 computer bots.
             </p>
             <div className="flex flex-wrap gap-2">
               <Link
@@ -259,7 +260,8 @@ export default function HomePage() {
                 onClick={() => sound.playClick()}
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-mono font-bold text-xs border-2 border-zinc-900 rounded-none active:translate-y-0.5 transition-all"
               >
-                <span>💀 Play Royale</span>
+                <Skull className="w-3 h-3" />
+                <span>Play Royale</span>
                 <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
@@ -292,7 +294,8 @@ export default function HomePage() {
                 onClick={() => sound.playClick()}
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-red-600 hover:bg-red-500 text-white font-mono font-bold text-xs border border-red-400/50 rounded-none active:translate-y-0.5 transition-all"
               >
-                <span>⚔️ Enter Checkers Arena</span>
+                <Swords className="w-3 h-3" />
+                <span>Enter Checkers Arena</span>
                 <ArrowRight className="w-3 h-3" />
               </Link>
             </div>

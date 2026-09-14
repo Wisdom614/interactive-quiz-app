@@ -714,8 +714,18 @@ export default function CheckersArenaPage() {
             </span>
           ))}
         </div>
-        <span className="text-[11px] text-slate-500 hidden sm:inline">
-          {isTriviaClash ? '🔥 Trivia Clash Enabled' : '⚔️ Classic Draughts Rules'}
+        <span className="text-[11px] text-slate-400 hidden sm:inline-flex items-center gap-1.5">
+          {isTriviaClash ? (
+            <>
+              <Flame className="w-3.5 h-3.5 text-amber-400" />
+              <span>Trivia Clash Enabled</span>
+            </>
+          ) : (
+            <>
+              <Swords className="w-3.5 h-3.5 text-slate-400" />
+              <span>Classic Draughts Rules</span>
+            </>
+          )}
         </span>
       </div>
 

@@ -899,9 +899,11 @@ export default function HostGamePage() {
                     <VectorAvatar id={p.avatar || 'v_zap'} size="sm" />
                     <span>{p.nickname}</span>
                     {isRoyale && (
-                      <span className="text-[9px] text-rose-600 font-black">
-                        {'❤️'.repeat(p.lives !== undefined ? p.lives : defaultHearts)}
-                      </span>
+                      <div className="flex items-center gap-0.5 ml-1">
+                        {Array.from({ length: p.lives !== undefined ? p.lives : defaultHearts }).map((_, i) => (
+                          <Heart key={i} className="w-2.5 h-2.5 fill-rose-600 text-rose-600" />
+                        ))}
+                      </div>
                     )}
                   </div>
                 ))
@@ -934,11 +936,13 @@ export default function HostGamePage() {
 
                 {isRoyale ? (
                   <div className="flex items-center gap-2 font-mono text-xs font-bold">
-                    <span className="px-2 py-0.5 bg-emerald-100 border border-emerald-900 text-emerald-950">
-                      ⚔️ {alivePlayers.length} ALIVE
+                    <span className="px-2 py-0.5 bg-emerald-100 border border-emerald-900 text-emerald-950 flex items-center gap-1">
+                      <Swords className="w-3 h-3 text-emerald-900" />
+                      <span>{alivePlayers.length} ALIVE</span>
                     </span>
-                    <span className="px-2 py-0.5 bg-rose-100 border border-rose-900 text-rose-950">
-                      💀 {eliminatedPlayers.length} SPECTATORS
+                    <span className="px-2 py-0.5 bg-rose-100 border border-rose-900 text-rose-950 flex items-center gap-1">
+                      <Skull className="w-3 h-3 text-rose-900" />
+                      <span>{eliminatedPlayers.length} SPECTATORS</span>
                     </span>
                   </div>
                 ) : (
@@ -994,7 +998,7 @@ export default function HostGamePage() {
                   return (
                     <div
                       key={p.id}
-                      className={`flex items-center gap-1 px-2 py-0.5 border text-[10px] font-mono font-bold rounded-none transition-all ${
+                      className={`flex items-center gap-1.5 px-2 py-0.5 border text-[10px] font-mono font-bold rounded-none transition-all ${
                         !isAlive
                           ? 'bg-zinc-200 border-zinc-400 text-zinc-500 line-through opacity-60'
                           : hasAnswered
@@ -1006,16 +1010,22 @@ export default function HostGamePage() {
                       <span>{p.nickname}</span>
                       
                       {isRoyale && (
-                        <span className="text-[9px] font-black not-italic ml-0.5">
-                          {isAlive ? '❤️'.repeat(currentLives) : '💀'}
-                        </span>
+                        <div className="flex items-center gap-0.5 ml-0.5">
+                          {isAlive ? (
+                            Array.from({ length: currentLives }).map((_, i) => (
+                              <Heart key={i} className="w-2.5 h-2.5 fill-rose-600 text-rose-600" />
+                            ))
+                          ) : (
+                            <Skull className="w-3 h-3 text-zinc-500" />
+                          )}
+                        </div>
                       )}
 
                       {isAlive && (
                         hasAnswered ? (
                           <CheckCircle2 className="w-3 h-3 text-emerald-600 ml-0.5" />
                         ) : (
-                          <span className="text-[8px] opacity-60 ml-0.5">⏳</span>
+                          <Clock className="w-2.5 h-2.5 text-zinc-400 ml-0.5" />
                         )
                       )}
                     </div>

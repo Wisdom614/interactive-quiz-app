@@ -874,7 +874,7 @@ function QuizCreateContent() {
                   )}
                 </div>
                 <p className={`text-[10px] ${gameMode === 'SURVIVAL_ROYALE' ? 'text-rose-200' : 'text-rose-800'}`}>
-                  Sudden death! Candidates lose hearts (❤️❤️❤️) on mistakes. Last player standing wins!
+                  Sudden death! Candidates lose lives on incorrect answers. Last player standing wins!
                 </p>
               </button>
             </div>
@@ -888,9 +888,9 @@ function QuizCreateContent() {
                 </span>
                 <div className="flex gap-1.5">
                   {[
-                    { label: '1 Heart (Hardcore)', hearts: 1 },
-                    { label: '3 Hearts (Standard)', hearts: 3 },
-                    { label: '5 Hearts (Endurance)', hearts: 5 },
+                    { label: '1 Life (Hardcore)', hearts: 1 },
+                    { label: '3 Lives (Standard)', hearts: 3 },
+                    { label: '5 Lives (Endurance)', hearts: 5 },
                   ].map((h) => (
                     <button
                       key={h.hearts}
