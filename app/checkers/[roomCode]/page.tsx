@@ -184,12 +184,14 @@ export default function CheckersArenaPage() {
       if (fetchedRoom.winner) setWinner(fetchedRoom.winner);
       if (fetchedRoom.moveHistory) setMoveHistory(fetchedRoom.moveHistory);
       if (fetchedRoom.lastMove) setLastMove(fetchedRoom.lastMove);
-      if (fetchedRoom.settings?.winReason === 'forfeit') {
+      if (fetchedRoom.status === 'GAME_OVER' && fetchedRoom.settings?.winReason === 'forfeit') {
         setForfeitInfo({
           winnerColor: fetchedRoom.winner || 'red',
           leaverName: fetchedRoom.settings.forfeitLeaverName || 'Opponent',
           reason: fetchedRoom.settings.forfeitReason || 'Opponent left the match',
         });
+      } else {
+        setForfeitInfo(null);
       }
 
       // Determine Host vs Guest
@@ -226,12 +228,14 @@ export default function CheckersArenaPage() {
         if (event.room.winner) setWinner(event.room.winner);
         if (event.room.moveHistory) setMoveHistory(event.room.moveHistory);
         if (event.room.lastMove) setLastMove(event.room.lastMove);
-        if (event.room.settings?.winReason === 'forfeit') {
+        if (event.room.status === 'GAME_OVER' && event.room.settings?.winReason === 'forfeit') {
           setForfeitInfo({
             winnerColor: event.room.winner || 'red',
             leaverName: event.room.settings.forfeitLeaverName || 'Opponent',
             reason: event.room.settings.forfeitReason || 'Opponent left the match',
           });
+        } else if (event.room.status !== 'GAME_OVER') {
+          setForfeitInfo(null);
         }
       } else if (event.type === 'CHECKERS_GUEST_JOINED') {
         sound.playPop();
@@ -245,6 +249,8 @@ export default function CheckersArenaPage() {
       } else if (event.type === 'CHECKERS_START_MATCH') {
         sound.playStreak();
         setRoom(event.room);
+        setWinner(null);
+        setForfeitInfo(null);
         if (event.room.currentTurn) setCurrentTurn(event.room.currentTurn);
       } else if (event.type === 'CHECKERS_MOVE') {
         setBoard(event.board);
@@ -331,12 +337,14 @@ export default function CheckersArenaPage() {
             if (dbRoom.winner) setWinner(dbRoom.winner);
             if (dbRoom.moveHistory) setMoveHistory(dbRoom.moveHistory);
             if (dbRoom.lastMove) setLastMove(dbRoom.lastMove);
-            if (dbRoom.settings?.winReason === 'forfeit') {
+            if (dbRoom.status === 'GAME_OVER' && dbRoom.settings?.winReason === 'forfeit') {
               setForfeitInfo({
                 winnerColor: dbRoom.winner || 'red',
                 leaverName: dbRoom.settings.forfeitLeaverName || 'Opponent',
                 reason: dbRoom.settings.forfeitReason || 'Opponent left the match',
               });
+            } else if (dbRoom.status !== 'GAME_OVER') {
+              setForfeitInfo(null);
             }
             return dbRoom;
           }
@@ -381,9 +389,13 @@ export default function CheckersArenaPage() {
     if (isSolo) return;
     const manager = getCheckersRoomManager(roomCode);
     sound.playStreak();
+    setWinner(null);
+    setForfeitInfo(null);
     const updated = await manager.startMatchNow();
     if (updated) {
       setRoom(updated);
+      setWinner(null);
+      setForfeitInfo(null);
       if (updated.currentTurn) setCurrentTurn(updated.currentTurn);
     }
   };
@@ -717,25 +729,6 @@ export default function CheckersArenaPage() {
     sound.playGameOver();
   };
 
-  // ---------------------------------------------------------------------------
-  // Detect Departure / Forfeit when browser window or tab is closed during active match
-  // ---------------------------------------------------------------------------
-  useEffect(() => {
-    if (isSolo || !room || room.status !== 'PLAYING' || winner) return;
-
-    const handleWindowLeave = () => {
-      const manager = getCheckersRoomManager(roomCode);
-      manager.forfeitMatch(myPlayerId, myPlayerName, opponentColor, `${myPlayerName} left the game`);
-    };
-
-    window.addEventListener('beforeunload', handleWindowLeave);
-    window.addEventListener('pagehide', handleWindowLeave);
-
-    return () => {
-      window.removeEventListener('beforeunload', handleWindowLeave);
-      window.removeEventListener('pagehide', handleWindowLeave);
-    };
-  }, [isSolo, room?.status, winner, roomCode, myPlayerId, myPlayerName, opponentColor]);
 
   // Emoji Reactions
   const triggerEmoji = (emoji: string, broadcast = true) => {

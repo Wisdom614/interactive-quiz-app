@@ -102,22 +102,6 @@ export class CheckersRoomManager {
           .on('broadcast', { event: 'checkers_event' }, ({ payload }) => {
             this.notifyListeners(payload as CheckersBroadcastEvent);
           })
-          .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-            if (leftPresences && Array.isArray(leftPresences)) {
-              leftPresences.forEach((pres: any) => {
-                if (pres && pres.playerId && pres.playerId !== this.myPlayerId) {
-                  const winnerColor: PlayerColor = pres.role === 'host' ? 'black' : 'red';
-                  this.notifyListeners({
-                    type: 'CHECKERS_FORFEIT',
-                    leaverId: pres.playerId,
-                    leaverName: pres.name || 'Opponent',
-                    winnerColor,
-                    reason: 'Opponent disconnected from the match',
-                  });
-                }
-              });
-            }
-          })
           .on(
             'postgres_changes',
             { event: 'UPDATE', schema: 'public', table: 'checkers_rooms', filter: `room_code=eq.${this.roomCode}` },
@@ -411,6 +395,14 @@ export class CheckersRoomManager {
       ...current,
       status: 'PLAYING',
       scheduledStartAt: null,
+      winner: null,
+      settings: {
+        ...(current.settings || {}),
+        winReason: null,
+        forfeitLeaverId: null,
+        forfeitLeaverName: null,
+        forfeitReason: null,
+      },
     };
 
     await this.saveRoom(updatedRoom);
