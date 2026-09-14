@@ -247,6 +247,15 @@ export default function BlocusArenaPage() {
     setMyPlayerName(pname);
   }, []);
 
+  // Show the short rules guide once, while leaving the help button available
+  // whenever a player wants a reminder.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!localStorage.getItem('blocus_tutorial_seen_v1')) {
+      setShowRulesModal(true);
+    }
+  }, []);
+
   // Manager reference for multiplayer
   const managerRef = useRef<ReturnType<typeof getBlocusRoomManager> | null>(null);
 
@@ -634,24 +643,58 @@ export default function BlocusArenaPage() {
     () => getTraceSegments(gameState),
     [gameState]
   );
+  const capturePreview = useMemo(() => {
+    if (!hoveredPos || !isMyTurn || gameState.dots[posToKey(hoveredPos.x, hoveredPos.y)]) {
+      return null;
+    }
 
-  // Track cursor on the SVG board to snap reticle
-  const handleSvgPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const clientX = e.clientX - rect.left;
-    const clientY = e.clientY - rect.top;
+    const result = placeBlocusDot(gameState, hoveredPos.x, hoveredPos.y);
+    return result.success && result.newCapturesCount > 0 ? result : null;
+  }, [gameState, hoveredPos, isMyTurn]);
+
+  const dismissRulesGuide = () => {
+    setShowRulesModal(false);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('blocus_tutorial_seen_v1', 'true');
+    }
+  };
+
+  const getGridPositionFromPointer = (
+    svg: SVGSVGElement,
+    clientX: number,
+    clientY: number
+  ): BlocusPosition | null => {
+    const rect = svg.getBoundingClientRect();
+    const relativeX = clientX - rect.left;
+    const relativeY = clientY - rect.top;
 
     // Convert to unzoomed SVG coordinates
-    const svgX = (clientX / rect.width) * boardWidthPx;
-    const svgY = (clientY / rect.height) * boardHeightPx;
+    const svgX = (relativeX / rect.width) * boardWidthPx;
+    const svgY = (relativeY / rect.height) * boardHeightPx;
 
     const gridX = Math.round((svgX - paperPadding) / cellSize);
     const gridY = Math.round((svgY - paperPadding) / cellSize);
 
     if (gridX >= 0 && gridX < gameState.width && gridY >= 0 && gridY < gameState.height) {
-      setHoveredPos({ x: gridX, y: gridY });
-    } else {
-      setHoveredPos(null);
+      return { x: gridX, y: gridY };
+    }
+
+    return null;
+  };
+
+  // Track cursor on the SVG board to snap the desktop hover reticle.
+  const handleSvgPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    setHoveredPos(getGridPositionFromPointer(e.currentTarget, e.clientX, e.clientY));
+  };
+
+  // Touch devices do not reliably emit a pointer move before click. Resolve the
+  // intersection from the release event itself so each participant places their
+  // own seed exactly where they tap.
+  const handleSvgPointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (isDragging) return;
+    const position = getGridPositionFromPointer(e.currentTarget, e.clientX, e.clientY);
+    if (position) {
+      handlePlaceDot(position.x, position.y);
     }
   };
 
@@ -785,6 +828,14 @@ export default function BlocusArenaPage() {
           </button>
 
           <button
+            onClick={() => setShowRulesModal(true)}
+            className="p-1.5 rounded-none bg-slate-900 border-2 border-slate-800 text-slate-400 hover:text-white"
+            title="How to play"
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+          </button>
+
+          <button
             onClick={() => setShowForfeitModal(true)}
             className="p-1.5 rounded-none bg-slate-900 border-2 border-slate-800 text-slate-400 hover:text-red-400"
             title="Surrender Paper"
@@ -907,11 +958,7 @@ export default function BlocusArenaPage() {
               viewBox={`0 0 ${boardWidthPx} ${boardHeightPx}`}
               className="bg-[#fcfbf9] border-4 border-slate-700 shadow-2xl rounded-none select-none"
               onPointerMove={handleSvgPointerMove}
-              onClick={() => {
-                if (hoveredPos) {
-                  handlePlaceDot(hoveredPos.x, hoveredPos.y);
-                }
-              }}
+              onPointerUp={handleSvgPointerUp}
             >
               <defs>
                 {/* 5mm Quad-Ruled Grid Pattern */}
@@ -989,6 +1036,30 @@ export default function BlocusArenaPage() {
                   />
                 );
               })}
+
+              {/* CAPTURE PREVIEW: shown only when this exact placement closes an
+                  opponent-containing loop. It is a preview, not a game change. */}
+              {capturePreview?.newState.enclosures
+                .slice(gameState.enclosures.length)
+                .map((enc) => {
+                  const pointsStr = enc.polygon
+                    .map(([px, py]) => `${paperPadding + px * cellSize},${paperPadding + py * cellSize}`)
+                    .join(' ');
+                  const previewColor = enc.owner === 'blue' ? '#2563eb' : enc.owner === 'red' ? '#ef4444' : '#16a34a';
+
+                  return (
+                    <polygon
+                      key={`preview-${enc.id}`}
+                      points={pointsStr}
+                      fill={`${previewColor}22`}
+                      stroke={previewColor}
+                      strokeWidth="2"
+                      strokeDasharray="6 4"
+                      strokeLinejoin="round"
+                      className="pointer-events-none animate-pulse"
+                    />
+                  );
+                })}
 
               {/* COMPLETED ENCLOSURE POLYGONS (WATERCOLOR INK WASH + PERIMETER STROKE) */}
               {gameState.enclosures.map((enc) => {
@@ -1103,6 +1174,19 @@ export default function BlocusArenaPage() {
                     r="3.5"
                     fill={myAssignedColor === 'blue' ? 'rgba(37, 99, 235, 0.5)' : 'rgba(239, 68, 68, 0.5)'}
                   />
+                  {capturePreview && (
+                    <text
+                      x={paperPadding + hoveredPos.x * cellSize}
+                      y={paperPadding + hoveredPos.y * cellSize - 14}
+                      textAnchor="middle"
+                      fontSize="10"
+                      fontFamily="sans-serif"
+                      fontWeight="bold"
+                      fill={myAssignedColor === 'blue' ? '#1d4ed8' : '#dc2626'}
+                    >
+                      CAPTURE +{capturePreview.newCapturesCount}
+                    </text>
+                  )}
                 </g>
               )}
             </svg>
@@ -1160,6 +1244,32 @@ export default function BlocusArenaPage() {
       )}
 
       {/* GAME OVER VICTORY MODAL */}
+      {showRulesModal && (
+        <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-slate-900 border-2 border-blue-500/60 p-6 sm:p-7 shadow-2xl space-y-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-black tracking-widest text-blue-400 uppercase">How Blocus Works</p>
+                <h2 className="mt-1 text-xl font-black text-white">Surround. Capture. Counter.</h2>
+              </div>
+              <HelpCircle className="w-6 h-6 text-blue-400 shrink-0" />
+            </div>
+            <ol className="space-y-3 text-sm text-slate-300">
+              <li className="flex gap-3"><span className="text-blue-400 font-black">1</span><span>Place one seed on any empty grid intersection when it is your turn.</span></li>
+              <li className="flex gap-3"><span className="text-blue-400 font-black">2</span><span>Build an adjacent blue or red chain around your opponent&apos;s seeds.</span></li>
+              <li className="flex gap-3"><span className="text-blue-400 font-black">3</span><span>Close the loop to capture the seeds inside. A capture earns one bonus seed.</span></li>
+            </ol>
+            <p className="text-xs text-slate-400 border-l-2 border-blue-500/50 pl-3">A dashed preview means your next placement will complete a capture.</p>
+            <button
+              onClick={dismissRulesGuide}
+              className="w-full py-3 bg-blue-600 hover:bg-blue-500 border border-blue-400 text-white font-black text-sm transition"
+            >
+              Start Playing
+            </button>
+          </div>
+        </div>
+      )}
+
       {gameState.winner && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-slate-900 border-4 border-slate-700 rounded-none p-6 sm:p-8 text-center space-y-5 shadow-2xl animate-in zoom-in-95 duration-200">

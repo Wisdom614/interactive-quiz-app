@@ -463,7 +463,11 @@ export function placeBlocusDot(
   }
 
   const activeColor = state.currentTurn;
-  const newDots: Record<string, BlocusDot> = { ...state.dots };
+  // A move may also be simulated for AI and UI previews. Clone individual dots
+  // as well as the record so those simulations can never mutate live state.
+  const newDots: Record<string, BlocusDot> = Object.fromEntries(
+    Object.entries(state.dots).map(([dotKey, dot]) => [dotKey, { ...dot }])
+  );
 
   // Place permanent dot
   newDots[key] = {
