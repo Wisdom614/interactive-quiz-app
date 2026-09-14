@@ -463,6 +463,11 @@ export class BlocusRoomManager {
     this.listeners.clear();
     this.isSupabaseSubscribed = false;
     this.pendingBroadcastQueue = [];
+
+    // A client may leave the arena and return without reloading the page.
+    // Remove this closed manager from the cache so the next visit creates a
+    // fresh BroadcastChannel and Supabase Realtime subscription.
+    blocusManagers.delete(this.roomCode);
   }
 }
 

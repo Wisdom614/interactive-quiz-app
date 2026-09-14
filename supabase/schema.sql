@@ -75,7 +75,22 @@ create policy "Public and authenticated users can insert/update rooms"
 
 -- 6. Realtime Publication
 -- Enable Supabase Realtime broadcast and table change feeds
-alter publication supabase_realtime add table public.quiz_rooms;
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication_rel publication_relation
+    join pg_publication publication on publication.oid = publication_relation.prpubid
+    join pg_class relation on relation.oid = publication_relation.prrelid
+    join pg_namespace namespace on namespace.oid = relation.relnamespace
+    where publication.pubname = 'supabase_realtime'
+      and namespace.nspname = 'public'
+      and relation.relname = 'quiz_rooms'
+  ) then
+    alter publication supabase_realtime add table public.quiz_rooms;
+  end if;
+end;
+$$;
 
 -- ==============================================================================
 -- 7. Checkers 1v1 Arena Rooms Table
@@ -114,7 +129,22 @@ create policy "Allow all operations on checkers_rooms"
   using (true)
   with check (true);
 
-alter publication supabase_realtime add table public.checkers_rooms;
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication_rel publication_relation
+    join pg_publication publication on publication.oid = publication_relation.prpubid
+    join pg_class relation on relation.oid = publication_relation.prrelid
+    join pg_namespace namespace on namespace.oid = relation.relnamespace
+    where publication.pubname = 'supabase_realtime'
+      and namespace.nspname = 'public'
+      and relation.relname = 'checkers_rooms'
+  ) then
+    alter publication supabase_realtime add table public.checkers_rooms;
+  end if;
+end;
+$$;
 
 -- ==============================================================================
 -- 8. Blocus (Dots / Jeu des Points) Arena Rooms Table
@@ -155,4 +185,19 @@ create policy "Allow all operations on blocus_rooms"
   using (true)
   with check (true);
 
-alter publication supabase_realtime add table public.blocus_rooms;
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication_rel publication_relation
+    join pg_publication publication on publication.oid = publication_relation.prpubid
+    join pg_class relation on relation.oid = publication_relation.prrelid
+    join pg_namespace namespace on namespace.oid = relation.relnamespace
+    where publication.pubname = 'supabase_realtime'
+      and namespace.nspname = 'public'
+      and relation.relname = 'blocus_rooms'
+  ) then
+    alter publication supabase_realtime add table public.blocus_rooms;
+  end if;
+end;
+$$;

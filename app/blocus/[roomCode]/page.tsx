@@ -1043,8 +1043,11 @@ export default function BlocusArenaPage() {
                 const cy = paperPadding + dot.y * cellSize;
                 const isCaptured = dot.enclosedBy && dot.enclosedBy !== dot.originalOwner;
 
-                let fillColor = dot.currentOwner === 'blue' ? '#1d4ed8' : '#dc2626';
-                if (dot.currentOwner === 'green') fillColor = '#15803d';
+                // A seed always keeps the ink colour of the player who placed it.
+                // Capture ownership is communicated by the enclosing trace/halo,
+                // not by repainting the seed itself.
+                let fillColor = dot.originalOwner === 'blue' ? '#1d4ed8' : '#dc2626';
+                if (dot.originalOwner === 'green') fillColor = '#15803d';
 
                 return (
                   <g key={posToKey(dot.x, dot.y)} className="transition-all duration-200">
