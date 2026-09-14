@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Sparkles, Zap, Gamepad2, BrainCircuit, Menu, X, LayoutDashboard } from 'lucide-react';
+import { Sparkles, Zap, Gamepad2, BrainCircuit, Menu, X, LayoutDashboard, Crown, Download } from 'lucide-react';
 import { AudioToggle } from './AudioToggle';
 import { sound } from '@/lib/audio/soundEngine';
 import { AuthService } from '@/lib/auth/authStore';
@@ -25,6 +25,13 @@ export function Navbar() {
     setIsMobileMenuOpen(false);
   };
 
+  const triggerPwaInstall = () => {
+    closeMenu();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('open-pwa-install'));
+    }
+  };
+
   return (
     <header className="sticky top-0 z-50 w-full border-b-2 border-zinc-900 bg-white shadow-sm rounded-none">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
@@ -35,7 +42,15 @@ export function Navbar() {
         </Link>
 
         {/* Desktop Navigation Links */}
-        <nav className="hidden md:flex items-center gap-2.5">
+        <nav className="hidden md:flex items-center gap-2">
+          <Link
+            href="/checkers"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-bold text-white bg-red-600 hover:bg-red-700 border-2 border-zinc-900 transition-all rounded-none active:translate-y-0.5 shadow-sm"
+          >
+            <Crown className="w-3.5 h-3.5" />
+            <span>Checkers 1v1</span>
+          </Link>
+
           <Link
             href="/create"
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-bold text-zinc-950 hover:bg-zinc-100 bg-white border-2 border-zinc-900 transition-all rounded-none active:translate-y-0.5"
@@ -68,11 +83,30 @@ export function Navbar() {
             <span>Join Game</span>
           </Link>
 
+          {/* Desktop Install App Trigger */}
+          <button
+            onClick={triggerPwaInstall}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-mono font-bold text-zinc-700 hover:text-zinc-950 hover:bg-zinc-100 border border-zinc-300 transition-all rounded-none"
+            title="Install Mobile & Desktop PWA"
+          >
+            <Download className="w-3.5 h-3.5 text-amber-600" />
+            <span>Install App</span>
+          </button>
+
           <AudioToggle />
         </nav>
 
-        {/* Mobile Right Controls: Sound + Menu Button */}
+        {/* Mobile Right Controls: Install + Sound + Menu Button */}
         <div className="flex md:hidden items-center gap-2">
+          <button
+            onClick={triggerPwaInstall}
+            className="p-1.5 bg-red-600 text-white border-2 border-zinc-900 rounded-none text-xs font-mono font-bold flex items-center gap-1"
+            title="Install App"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span className="text-[10px]">App</span>
+          </button>
+
           <AudioToggle />
 
           <button
@@ -88,6 +122,30 @@ export function Navbar() {
       {/* Mobile Dropdown Menu Panel */}
       {isMobileMenuOpen && (
         <div className="md:hidden border-t-2 border-zinc-900 bg-white p-4 flex flex-col gap-2.5 shadow-md">
+          {/* Install PWA Prompt Button */}
+          <button
+            onClick={triggerPwaInstall}
+            className="flex items-center justify-between p-3 bg-gradient-to-r from-red-600 to-rose-600 text-white font-mono font-bold text-xs uppercase border-2 border-zinc-900 rounded-none active:translate-y-0.5 shadow-sm"
+          >
+            <div className="flex items-center gap-2">
+              <Download className="w-4 h-4" />
+              <span>Install Checkers & Quiz App</span>
+            </div>
+            <span className="text-[10px] bg-red-950 px-1.5 py-0.5">PWA</span>
+          </button>
+
+          <Link
+            href="/checkers"
+            onClick={closeMenu}
+            className="flex items-center justify-between p-3 bg-zinc-900 text-white font-mono font-bold text-xs uppercase border-2 border-zinc-900 rounded-none active:translate-y-0.5"
+          >
+            <div className="flex items-center gap-2">
+              <Crown className="w-4 h-4 text-amber-400" />
+              <span>Checkers Arena 1v1</span>
+            </div>
+            <span className="text-[10px] text-amber-400">Live</span>
+          </Link>
+
           <Link
             href="/#join"
             onClick={closeMenu}

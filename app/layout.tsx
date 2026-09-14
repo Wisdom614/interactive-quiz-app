@@ -1,17 +1,36 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import 'katex/dist/katex.min.css';
 import { Navbar } from '@/components/Navbar';
+import { PwaInstallPrompt } from '@/components/PwaInstallPrompt';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: '#020617',
+};
 
 export const metadata: Metadata = {
-  title: 'Kinetic AI - Real-time AI Multiplayer Trivia Arena',
-  description: 'High-speed, competitive live multiplayer trivia powered by Grok AI and Supabase Realtime.',
-  keywords: ['Kinetic AI', 'Live Quiz', 'Multiplayer Trivia', 'Grok AI', 'Supabase Realtime'],
+  title: 'Checkers Arena & Kinetic Quiz',
+  description: 'Real-time 1v1 African Checkers Arena and live multiplayer trivia battles powered by AI and Supabase Realtime.',
+  manifest: '/manifest.json',
+  applicationName: 'Checkers Arena',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Checkers Arena',
+  },
   icons: {
     icon: [
+      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
       { url: '/icon.svg', type: 'image/svg+xml' },
     ],
-    apple: '/icon.svg',
+    apple: [
+      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+    ],
   },
 };
 
@@ -27,6 +46,7 @@ export default function RootLayout({
         <main className="flex-1 flex flex-col">
           {children}
         </main>
+        <PwaInstallPrompt />
       </body>
     </html>
   );

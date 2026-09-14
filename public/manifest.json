@@ -1,0 +1,64 @@
+{
+  "name": "Checkers Arena & Trivia Battles",
+  "short_name": "Checkers Arena",
+  "description": "Realtime Multiplayer African Checkers, Trivia Battles & Live Arena Games",
+  "start_url": "/checkers",
+  "scope": "/",
+  "id": "/checkers",
+  "display": "standalone",
+  "display_override": ["standalone", "window-controls-overlay"],
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["games", "entertainment", "sports"],
+  "shortcuts": [
+    {
+      "name": "1v1 Checkers Arena",
+      "short_name": "Checkers",
+      "description": "Play live 1v1 Checkers match",
+      "url": "/checkers",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Solo Bot Practice",
+      "short_name": "Solo Bot",
+      "description": "Challenge the Grandmaster AI",
+      "url": "/checkers/arena?mode=solo",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Trivia Arena",
+      "short_name": "Trivia Quiz",
+      "description": "Join live AI Trivia Clash",
+      "url": "/",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}

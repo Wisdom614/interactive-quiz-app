@@ -16,7 +16,8 @@ import {
   Trophy,
   Volume2,
   VolumeX,
-  Shuffle
+  Shuffle,
+  Download
 } from 'lucide-react';
 import { AIDifficulty, PlayerColor } from '@/lib/games/checkersEngine';
 import { sound } from '@/lib/audio/soundEngine';
@@ -177,16 +178,31 @@ export default function CheckersLobbyPage() {
           href="/"
           className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors group"
         >
-          <div className="p-2 rounded-xl bg-slate-900 border border-slate-800 group-hover:border-slate-700">
+          <div className="p-2 rounded-none bg-slate-900 border border-slate-800 group-hover:border-slate-700">
             <ArrowLeft className="w-5 h-5 text-slate-300" />
           </div>
           <span className="font-semibold text-sm">Back to Hub</span>
         </Link>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* PWA Install Button */}
+          <button
+            onClick={() => {
+              sound.playSelect();
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('open-pwa-install'));
+              }
+            }}
+            className="py-2 px-3 rounded-none bg-red-600 hover:bg-red-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-red-600/20 transition active:scale-95"
+            title="Install Checkers Arena as Mobile App"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Install App</span>
+          </button>
+
           <button
             onClick={toggleMute}
-            className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition"
+            className="p-2 rounded-none bg-slate-900/80 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition"
             title={isMuted ? "Unmute Sound" : "Mute Sound"}
           >
             {isMuted ? <VolumeX className="w-5 h-5 text-red-400" /> : <Volume2 className="w-5 h-5 text-slate-300" />}
@@ -198,7 +214,7 @@ export default function CheckersLobbyPage() {
       <div className="relative z-10 w-full max-w-4xl mx-auto px-6 py-4 flex flex-col items-center">
         {/* Title Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold tracking-wide uppercase mb-3 shadow-inner">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-none bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold tracking-wide uppercase mb-3 shadow-inner">
             <Crown className="w-3.5 h-3.5 animate-pulse" />
             Strategic Board Arena
           </div>
@@ -211,10 +227,10 @@ export default function CheckersLobbyPage() {
         </div>
 
         {/* Mode Selector Tabs */}
-        <div className="w-full max-w-md grid grid-cols-2 p-1.5 bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-800 mb-8 shadow-xl">
+        <div className="w-full max-w-md grid grid-cols-2 p-1.5 bg-slate-900/90 backdrop-blur-md rounded-none border-2 border-slate-800 mb-8 shadow-xl">
           <button
             onClick={() => { sound.playSelect(); setMode('solo'); }}
-            className={`flex items-center justify-center gap-2.5 py-3 rounded-xl font-bold text-sm transition-all ${
+            className={`flex items-center justify-center gap-2.5 py-3 rounded-none font-bold text-sm transition-all ${
               mode === 'solo'
                 ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-lg shadow-red-500/25'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
@@ -225,7 +241,7 @@ export default function CheckersLobbyPage() {
           </button>
           <button
             onClick={() => { sound.playSelect(); setMode('multiplayer'); }}
-            className={`flex items-center justify-center gap-2.5 py-3 rounded-xl font-bold text-sm transition-all ${
+            className={`flex items-center justify-center gap-2.5 py-3 rounded-none font-bold text-sm transition-all ${
               mode === 'multiplayer'
                 ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg shadow-indigo-500/25'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
@@ -237,7 +253,7 @@ export default function CheckersLobbyPage() {
         </div>
 
         {/* Content Card */}
-        <div className="w-full max-w-xl bg-slate-900/70 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
+        <div className="w-full max-w-xl bg-slate-900/70 backdrop-blur-xl border-2 border-slate-800 rounded-none p-6 sm:p-8 shadow-2xl">
           {mode === 'solo' ? (
             /* SOLO CONFIGURATION */
             <div className="space-y-6">
