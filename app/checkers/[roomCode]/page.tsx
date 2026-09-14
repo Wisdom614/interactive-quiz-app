@@ -1310,16 +1310,37 @@ export default function CheckersArenaPage() {
             )}
           </div>
 
-          {/* 3. Center: Interactive 8x8 Board Canvas */}
-          <div className={`relative p-1.5 sm:p-2.5 rounded-2xl sm:rounded-3xl border-4 sm:border-[6px] shadow-2xl transition-colors duration-300 ${
-            boardTheme === 'crimson' 
-              ? 'bg-neutral-950 border-rose-950 shadow-red-950/30' 
-              : boardTheme === 'wood' 
-              ? 'bg-amber-950 border-amber-950 shadow-amber-950/40' 
-              : 'bg-black border-black shadow-black'
-          }`}>
-            {/* Seamless 8x8 Checkerboard Grid matching uploaded image */}
-            <div className="grid grid-cols-8 grid-rows-8 gap-0 w-[min(90vw,calc(100vh-320px),460px)] h-[min(90vw,calc(100vh-320px),460px)] border-2 border-black overflow-hidden shadow-inner">
+          {/* 3. Center: Interactive 8x8 Board Canvas with Refined Tournament Borders */}
+          <div className="relative group">
+            {/* Ambient Reactive Turn Glow */}
+            <div className={`absolute -inset-1.5 rounded-[28px] sm:rounded-[36px] opacity-35 blur-xl transition-all duration-500 pointer-events-none ${
+              currentTurn === myPlayerColor ? 'bg-emerald-500/30' : 'bg-amber-500/30'
+            }`} />
+
+            {/* The Main Beveled Board Frame */}
+            <div className={`relative p-2 sm:p-3 rounded-[22px] sm:rounded-[28px] border-2 transition-all duration-300 shadow-2xl ${
+              boardTheme === 'crimson' 
+                ? 'bg-gradient-to-b from-neutral-900 via-neutral-950 to-neutral-900 border-rose-900/60 shadow-black ring-1 ring-rose-950/80' 
+                : boardTheme === 'wood' 
+                ? 'bg-gradient-to-b from-amber-950 via-[#2d1508] to-amber-950 border-amber-800/60 shadow-black ring-1 ring-amber-950/80' 
+                : 'bg-gradient-to-b from-slate-900 via-neutral-950 to-black border-slate-700/60 shadow-black/90 ring-1 ring-white/10'
+            }`}>
+              {/* Corner Accent Pips */}
+              <span className="absolute top-2 left-2 w-1.5 h-1.5 rounded-full bg-slate-500/40 ring-1 ring-white/10 pointer-events-none" />
+              <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-slate-500/40 ring-1 ring-white/10 pointer-events-none" />
+              <span className="absolute bottom-2 left-2 w-1.5 h-1.5 rounded-full bg-slate-500/40 ring-1 ring-white/10 pointer-events-none" />
+              <span className="absolute bottom-2 right-2 w-1.5 h-1.5 rounded-full bg-slate-500/40 ring-1 ring-white/10 pointer-events-none" />
+
+              {/* Inner Inset Bezel (Recessed Tournament Track) */}
+              <div className={`p-0.5 sm:p-1 rounded-xl sm:rounded-2xl border shadow-inner ${
+                boardTheme === 'crimson'
+                  ? 'bg-neutral-950 border-rose-950/80'
+                  : boardTheme === 'wood'
+                  ? 'bg-[#200e05] border-amber-950/80'
+                  : 'bg-black border-neutral-900'
+              }`}>
+                {/* Seamless 8x8 Checkerboard Grid matching uploaded image */}
+                <div className="grid grid-cols-8 grid-rows-8 gap-0 w-[min(90vw,calc(100vh-320px),460px)] h-[min(90vw,calc(100vh-320px),460px)] border border-neutral-800/90 overflow-hidden rounded-lg sm:rounded-xl shadow-inner">
               {displayRows.map((r, rowIdx) =>
                 displayCols.map((c, colIdx) => {
                   const piece = board[r][c];
@@ -1437,6 +1458,8 @@ export default function CheckersArenaPage() {
               )}
             </div>
           </div>
+        </div>
+      </div>
 
           {/* 4. Player Bar (Your HUD, directly below board) */}
           <div className={`w-full bg-slate-900/90 border rounded-2xl px-3.5 py-2 flex items-center justify-between shadow-xl backdrop-blur-md transition-all ${
