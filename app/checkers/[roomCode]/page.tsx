@@ -31,7 +31,8 @@ import {
   ShieldAlert,
   Flag,
   HelpCircle,
-  Info
+  Info,
+  Palette
 } from 'lucide-react';
 import { 
   BoardState, 
@@ -96,6 +97,7 @@ export default function CheckersArenaPage() {
   const [forfeitInfo, setForfeitInfo] = useState<{ winnerColor: PlayerColor | 'draw'; leaverName: string; reason: string } | null>(null);
   const [showForfeitModal, setShowForfeitModal] = useState(false);
   const [showRulesModal, setShowRulesModal] = useState(false);
+  const [boardTheme, setBoardTheme] = useState<'classic' | 'crimson' | 'wood'>('classic');
   const [hintToast, setHintToast] = useState<{ message: string; type: 'warning' | 'info' } | null>(null);
 
   const showFeedbackToast = (message: string, type: 'warning' | 'info' = 'warning') => {
@@ -973,6 +975,19 @@ export default function CheckersArenaPage() {
             <span className="hidden sm:inline">Rules</span>
           </button>
 
+          {/* Board Grid Theme Switcher */}
+          <button
+            onClick={() => {
+              setBoardTheme(prev => prev === 'classic' ? 'crimson' : prev === 'crimson' ? 'wood' : 'classic');
+              sound.playSelect();
+            }}
+            className="p-2 sm:px-2.5 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+            title={`Board Grid Style: ${boardTheme === 'classic' ? 'Classic Black & White' : boardTheme === 'crimson' ? 'Crimson & Black' : 'Tournament Wood'}`}
+          >
+            <Palette className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden lg:inline capitalize">{boardTheme}</span>
+          </button>
+
           {/* Resign / Forfeit Button */}
           {!isLobbyOrStarting && !winner && (
             <button
@@ -1296,8 +1311,15 @@ export default function CheckersArenaPage() {
           </div>
 
           {/* 3. Center: Interactive 8x8 Board Canvas */}
-          <div className="relative p-2 sm:p-2.5 bg-gradient-to-br from-slate-900 via-slate-950 to-black rounded-3xl border-2 border-slate-700/80 shadow-2xl shadow-black/80 ring-1 ring-slate-800">
-            <div className="grid grid-cols-8 grid-rows-8 gap-1 w-[min(90vw,calc(100vh-320px),460px)] h-[min(90vw,calc(100vh-320px),460px)]">
+          <div className={`relative p-1.5 sm:p-2.5 rounded-2xl sm:rounded-3xl border-4 sm:border-[6px] shadow-2xl transition-colors duration-300 ${
+            boardTheme === 'crimson' 
+              ? 'bg-neutral-950 border-rose-950 shadow-red-950/30' 
+              : boardTheme === 'wood' 
+              ? 'bg-amber-950 border-amber-950 shadow-amber-950/40' 
+              : 'bg-black border-black shadow-black'
+          }`}>
+            {/* Seamless 8x8 Checkerboard Grid matching uploaded image */}
+            <div className="grid grid-cols-8 grid-rows-8 gap-0 w-[min(90vw,calc(100vh-320px),460px)] h-[min(90vw,calc(100vh-320px),460px)] border-2 border-black overflow-hidden shadow-inner">
               {displayRows.map((r, rowIdx) =>
                 displayCols.map((c, colIdx) => {
                   const piece = board[r][c];
@@ -1315,30 +1337,37 @@ export default function CheckersArenaPage() {
                   const isJumpingPiece = isMyTurn && isMyOwnPiece && jumpingPositionsSet.has(posKey);
                   const isForcedChainPiece = mustJumpChainPos && mustJumpChainPos.row === r && mustJumpChainPos.col === c;
 
+                  // High contrast checkerboard square color determination
+                  const squareBg = isDarkSquare
+                    ? (boardTheme === 'wood' ? 'bg-[#371d10]' : 'bg-[#0a0a0a]')
+                    : (boardTheme === 'crimson' ? 'bg-red-800' : boardTheme === 'wood' ? 'bg-[#fef3c7]' : 'bg-white');
+
                   return (
                     <div
                       key={`${r}-${c}`}
                       onClick={() => handleSquareClick(r, c)}
-                      className={`relative flex items-center justify-center rounded-lg sm:rounded-xl transition-all duration-150 ${
-                        isDarkSquare ? 'bg-slate-900/95' : 'bg-slate-800/40'
+                      className={`relative flex items-center justify-center transition-all duration-150 ${squareBg} ${
+                        isSelected ? 'ring-4 ring-amber-400 ring-inset z-20' : ''
                       } ${
-                        isSelected ? 'ring-4 ring-amber-400 ring-inset bg-amber-950/20' : ''
+                        isLastMoveTo ? 'ring-4 ring-emerald-400/90 ring-inset bg-emerald-950/40 z-10' : ''
                       } ${
-                        isLastMoveTo ? 'ring-4 ring-emerald-400/90 ring-inset bg-emerald-950/30 shadow-[0_0_12px_rgba(52,211,153,0.35)]' : ''
-                      } ${
-                        isLastMoveFrom ? 'ring-2 ring-amber-400/40 ring-dashed bg-amber-950/10' : ''
+                        isLastMoveFrom ? 'ring-2 ring-amber-400/50 ring-dashed z-10' : ''
                       } ${
                         isMyTurn && (isMovablePiece || isSelected || validDest) ? 'cursor-pointer hover:brightness-110' : 'cursor-default'
                       }`}
                     >
-                      {/* Algebraic edge coordinates */}
+                      {/* Algebraic edge coordinates with dynamic contrast */}
                       {colIdx === 0 && (
-                        <span className="absolute top-0.5 left-1 text-[8px] sm:text-[9px] font-mono font-bold text-slate-600 select-none pointer-events-none">
+                        <span className={`absolute top-0.5 left-1 text-[8px] sm:text-[9px] font-mono font-extrabold select-none pointer-events-none z-10 ${
+                          isDarkSquare ? 'text-slate-500' : (boardTheme === 'classic' ? 'text-slate-400' : 'text-slate-200')
+                        }`}>
                           {8 - r}
                         </span>
                       )}
                       {rowIdx === 7 && (
-                        <span className="absolute bottom-0.5 right-1 text-[8px] sm:text-[9px] font-mono font-bold text-slate-600 select-none pointer-events-none">
+                        <span className={`absolute bottom-0.5 right-1 text-[8px] sm:text-[9px] font-mono font-extrabold select-none pointer-events-none z-10 ${
+                          isDarkSquare ? 'text-slate-500' : (boardTheme === 'classic' ? 'text-slate-400' : 'text-slate-200')
+                        }`}>
                           {String.fromCharCode(65 + c)}
                         </span>
                       )}
@@ -1361,21 +1390,21 @@ export default function CheckersArenaPage() {
                       {/* Valid Move Indicator Dots */}
                       {validDest && (
                         isJump ? (
-                          <div className="absolute z-20 w-6 h-6 sm:w-7 sm:h-7 rounded-full border-2 border-amber-300 bg-amber-500/80 animate-pulse shadow-lg shadow-amber-500/50 flex items-center justify-center pointer-events-none">
+                          <div className="absolute z-20 w-6 h-6 sm:w-7 sm:h-7 rounded-full border-2 border-amber-300 bg-amber-500/85 animate-pulse shadow-lg shadow-amber-500/60 flex items-center justify-center pointer-events-none">
                             <div className="w-2 h-2 rounded-full bg-white shadow" />
                           </div>
                         ) : (
-                          <div className="absolute z-20 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-emerald-400/90 shadow-md shadow-emerald-400/50 flex items-center justify-center pointer-events-none" />
+                          <div className="absolute z-20 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-emerald-400 shadow-md shadow-emerald-400/60 flex items-center justify-center pointer-events-none" />
                         )
                       )}
 
-                      {/* Tactile Checkers Piece */}
+                      {/* Tactile Checkers Piece (Red & Black Seeds) */}
                       {piece && (
                         <div
-                          className={`relative w-8 h-8 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shadow-xl transition-all duration-200 transform ${
+                          className={`relative w-[82%] h-[82%] sm:w-[84%] sm:h-[84%] rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shadow-xl transition-all duration-200 transform ${
                             piece === 'r' || piece === 'R'
-                              ? 'bg-gradient-to-b from-red-500 via-red-600 to-red-800 border-2 sm:border-[3px] border-red-300/90 text-white shadow-red-600/35'
-                              : 'bg-gradient-to-b from-slate-600 via-slate-800 to-slate-950 border-2 sm:border-[3px] border-slate-400/90 text-slate-100 shadow-black/80'
+                              ? 'bg-gradient-to-b from-red-500 via-red-600 to-red-800 border-2 sm:border-[3px] border-red-300/90 text-white shadow-xl shadow-red-950/60'
+                              : 'bg-gradient-to-b from-slate-600 via-slate-700 to-slate-900 border-2 sm:border-[3px] border-slate-300/90 text-slate-100 shadow-xl shadow-black ring-1 ring-white/25'
                           } ${
                             // Turn-based highlighting & selection feedback
                             isSelected
@@ -1393,7 +1422,7 @@ export default function CheckersArenaPage() {
                         >
                           <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full border border-white/20 flex items-center justify-center">
                             {isKingPiece && (
-                              <Crown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-300 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] animate-pulse" />
+                              <Crown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-300 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] animate-pulse" />
                             )}
                           </div>
                         </div>
