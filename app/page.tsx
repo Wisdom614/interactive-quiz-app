@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Sparkles, Gamepad2, Zap, Trophy, BrainCircuit, Users, ArrowRight,
-  Flame, ShieldAlert, Cpu, Globe, Film, Code2, Atom, Terminal, Activity, Calculator
+  Flame, ShieldAlert, Cpu, Globe, Film, Code2, Atom, Terminal, Activity, Calculator, Crown
 } from 'lucide-react';
 import { AvatarSelector } from '@/components/AvatarSelector';
 import { VECTOR_AVATARS } from '@/components/VectorAvatar';
@@ -232,7 +232,7 @@ export default function HomePage() {
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 bg-rose-100 border border-rose-900 text-rose-950 rounded-none">
-                  NEW: ROYALE MODE
+                  ROYALE MODE
                 </span>
                 <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 bg-zinc-100 border border-zinc-900 text-zinc-900 rounded-none">
                   SOLO / AI
@@ -260,6 +260,39 @@ export default function HomePage() {
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-mono font-bold text-xs border-2 border-zinc-900 rounded-none active:translate-y-0.5 transition-all"
               >
                 <span>💀 Play Royale</span>
+                <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+          </div>
+
+          {/* Checkers Arena 1v1 Card */}
+          <div className="bg-slate-900 border-2 border-zinc-900 p-6 shadow-sm rounded-none text-white">
+            <div className="flex items-start justify-between mb-3">
+              <div className="p-2 bg-red-500/20 border border-red-500/40 text-red-400 rounded-none">
+                <Crown className="w-4 h-4" />
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 bg-amber-500/20 border border-amber-500/40 text-amber-300 rounded-none">
+                  NEW ARENA
+                </span>
+                <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 bg-slate-800 border border-slate-700 text-slate-300 rounded-none">
+                  BOARD GAME
+                </span>
+              </div>
+            </div>
+            <h3 className="text-lg font-mono font-bold text-white tracking-tight mb-1 uppercase">
+              Checkers Arena 1v1
+            </h3>
+            <p className="text-xs font-mono text-slate-400 mb-5 leading-relaxed">
+              Play real-time 1v1 online draughts with friends, challenge the Minimax AI bot, or try the fast-paced <strong>Trivia Clash</strong> mode.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/checkers"
+                onClick={() => sound.playClick()}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-red-600 hover:bg-red-500 text-white font-mono font-bold text-xs border border-red-400/50 rounded-none active:translate-y-0.5 transition-all"
+              >
+                <span>⚔️ Enter Checkers Arena</span>
                 <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
