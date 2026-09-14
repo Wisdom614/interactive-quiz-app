@@ -54,6 +54,37 @@ import {
 } from '@/lib/games/blocusRoomStore';
 import { AuthService } from '@/lib/auth/authStore';
 
+type TraceSegment = {
+  from: BlocusPosition;
+  to: BlocusPosition;
+  color: BlocusColor;
+};
+
+function getTraceSegments(gameState: BlocusGameState): TraceSegment[] {
+  const segments: TraceSegment[] = [];
+  const directions = [
+    { dx: 1, dy: 0 },
+    { dx: 0, dy: 1 },
+    { dx: 1, dy: 1 },
+    { dx: 1, dy: -1 },
+  ];
+
+  for (const dot of Object.values(gameState.dots)) {
+    for (const { dx, dy } of directions) {
+      const to = { x: dot.x + dx, y: dot.y + dy };
+      const neighbor = gameState.dots[posToKey(to.x, to.y)];
+
+      // A trace joins every adjacent dot owned by the same player. Opponent
+      // dots in the other two corners do not block this connection.
+      if (!neighbor || neighbor.currentOwner !== dot.currentOwner) continue;
+
+      segments.push({ from: { x: dot.x, y: dot.y }, to, color: dot.currentOwner });
+    }
+  }
+
+  return segments;
+}
+
 export default function BlocusArenaPage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -599,6 +630,10 @@ export default function BlocusArenaPage() {
   const paperPadding = 48; // padding around grid intersections
   const boardWidthPx = (gameState.width - 1) * cellSize + paperPadding * 2;
   const boardHeightPx = (gameState.height - 1) * cellSize + paperPadding * 2;
+  const traceSegments = useMemo(
+    () => getTraceSegments(gameState),
+    [gameState]
+  );
 
   // Track cursor on the SVG board to snap reticle
   const handleSvgPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -927,6 +962,34 @@ export default function BlocusArenaPage() {
                 </text>
               ))}
 
+              {/* LIVE INK TRACE: every adjacent friendly dot is joined so players can
+                  clearly see the open perimeter they are building around an enemy seed.
+                  A trace stays dashed until it closes around an opposing dot; the solid
+                  polygon below is rendered only for a successful capture. */}
+              {traceSegments.map((segment) => {
+                const traceColor = segment.color === 'blue'
+                  ? '#1d4ed8'
+                  : segment.color === 'red'
+                  ? '#dc2626'
+                  : '#15803d';
+
+                return (
+                  <line
+                    key={`${segment.color}-${segment.from.x},${segment.from.y}-${segment.to.x},${segment.to.y}`}
+                    x1={paperPadding + segment.from.x * cellSize}
+                    y1={paperPadding + segment.from.y * cellSize}
+                    x2={paperPadding + segment.to.x * cellSize}
+                    y2={paperPadding + segment.to.y * cellSize}
+                    stroke={traceColor}
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeDasharray="5 3"
+                    opacity="0.62"
+                    className="animate-in fade-in duration-200"
+                  />
+                );
+              })}
+
               {/* COMPLETED ENCLOSURE POLYGONS (WATERCOLOR INK WASH + PERIMETER STROKE) */}
               {gameState.enclosures.map((enc) => {
                 const pointsStr = enc.polygon
@@ -1052,7 +1115,7 @@ export default function BlocusArenaPage() {
                 {gameState.winner
                   ? 'Game Finished'
                   : isMyTurn
-                  ? 'Your Turn - Tap Intersection'
+                  ? `Your ${myAssignedColor} Trace - Enclose an Opponent Seed`
                   : isSolo
                   ? 'Bot Planning Enclosure...'
                   : "Opponent's Turn"}

@@ -146,33 +146,16 @@ export function is8Adjacent(p1: BlocusPosition, p2: BlocusPosition): boolean {
 }
 
 /**
- * Diagonal crossing rule check:
- * If Player A connects (x, y) with (x+1, y+1), Player B cannot connect (x+1, y) with (x, y+1).
+ * Adjacent dots always form a trace. A player's dots must not be prevented
+ * from joining merely because the other two corners of the square contain
+ * opponent dots: dots do not constitute a drawn crossing by themselves.
  */
 export function canConnectDiagonally(
-  p1: BlocusPosition,
-  p2: BlocusPosition,
-  dots: Record<string, BlocusDot>,
-  color: BlocusColor
+  _p1: BlocusPosition,
+  _p2: BlocusPosition,
+  _dots: Record<string, BlocusDot>,
+  _color: BlocusColor
 ): boolean {
-  if (Math.abs(p1.x - p2.x) !== 1 || Math.abs(p1.y - p2.y) !== 1) {
-    return true; // Not a diagonal move
-  }
-
-  // Find the other two corners of the 1x1 square
-  const cornerA = dots[posToKey(p1.x, p2.y)];
-  const cornerB = dots[posToKey(p2.x, p1.y)];
-
-  if (cornerA && cornerB) {
-    // If both other corners belong to the same opponent, they form a cross-barrier
-    if (
-      cornerA.currentOwner !== color &&
-      cornerA.currentOwner === cornerB.currentOwner
-    ) {
-      return false; // Crossed by opponent diagonal!
-    }
-  }
-
   return true;
 }
 
@@ -212,6 +195,35 @@ export function getConnectedFriendlyNeighbors(
   }
 
   return neighbors;
+}
+
+/**
+ * Returns each ink stroke that makes up a player's visible trace.
+ *
+ * The game has always treated adjacent dots as a continuous barrier while
+ * detecting enclosures. Exposing those barriers lets the board show players
+ * the line they are drawing before the final loop captures a seed.
+ */
+export function getBlocusTraceSegments(
+  dots: Record<string, BlocusDot>,
+  width: number,
+  height: number
+): { from: BlocusPosition; to: BlocusPosition; color: BlocusColor }[] {
+  const segments: { from: BlocusPosition; to: BlocusPosition; color: BlocusColor }[] = [];
+
+  for (const dot of Object.values(dots)) {
+    const from = { x: dot.x, y: dot.y };
+    const neighbors = getConnectedFriendlyNeighbors(from, dots, dot.currentOwner, width, height);
+
+    for (const to of neighbors) {
+      // Keep one canonical direction so each segment is rendered once.
+      if (from.x < to.x || (from.x === to.x && from.y < to.y)) {
+        segments.push({ from, to, color: dot.currentOwner });
+      }
+    }
+  }
+
+  return segments;
 }
 
 /**
