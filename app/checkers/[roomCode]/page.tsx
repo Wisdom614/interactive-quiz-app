@@ -27,7 +27,8 @@ import {
   Play,
   Hourglass,
   CheckCircle2,
-  Radio
+  Radio,
+  ShieldAlert
 } from 'lucide-react';
 import { 
   BoardState, 
@@ -61,6 +62,7 @@ export default function CheckersArenaPage() {
 
   const roomCode = ((params.roomCode as string) || 'arena').toUpperCase();
   const isSolo = roomCode === 'ARENA' || searchParams.get('mode') === 'solo';
+  const roleFromUrl = searchParams.get('role') as 'host' | 'guest' | null;
 
   // Game configuration (for Solo)
   const aiDifficulty = (searchParams.get('diff') as AIDifficulty) || 'MEDIUM';
@@ -68,13 +70,13 @@ export default function CheckersArenaPage() {
   const soloTriviaClash = searchParams.get('trivia') === '1';
   const soloTurnTimer = parseInt(searchParams.get('timer') || '30', 10);
 
-  // Player identity
+  // Player identity (Session-isolated so testing in multiple tabs works seamlessly)
   const [myPlayerId, setMyPlayerId] = useState<string>('');
   const [myPlayerName, setMyPlayerName] = useState<string>('');
 
   // Multiplayer Room State
   const [room, setRoom] = useState<CheckersRoom | null>(null);
-  const [myRole, setMyRole] = useState<'host' | 'guest'>('host');
+  const [myRole, setMyRole] = useState<'host' | 'guest'>(roleFromUrl || 'host');
   const [isRoomFull, setIsRoomFull] = useState(false);
   const [isRoomNotFound, setIsRoomNotFound] = useState(false);
   const [countdownRemaining, setCountdownRemaining] = useState<number | null>(null);
@@ -113,30 +115,47 @@ export default function CheckersArenaPage() {
     setIsMuted(muted);
   };
 
-  // Determine active configuration (Solo vs Multiplayer)
+  // Determine player colors based on role
+  // Host is always RED (moves 1st) | Guest is always BLACK (moves 2nd)
   const isTriviaClash = isSolo ? soloTriviaClash : (room?.isTriviaClash ?? false);
   const turnTimeLimit = isSolo ? soloTurnTimer : (room?.turnTimerSec ?? 30);
+  
   const myPlayerColor: PlayerColor = isSolo 
     ? soloAssignedColor 
     : (myRole === 'host' ? 'red' : 'black');
+    
+  const opponentColor: PlayerColor = getOpponent(myPlayerColor);
 
   // ---------------------------------------------------------------------------
-  // Initialize Player Identity & Connect to Multiplayer Room
+  // Initialize Session-Isolated Player Identity & Connect to Room
   // ---------------------------------------------------------------------------
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    let pId = localStorage.getItem('checkers_player_id');
-    let pName = localStorage.getItem('checkers_player_name');
+    // Use sessionStorage first so two tabs on the same computer are treated as distinct players
+    const sessionKeyId = `checkers_sess_id_${roomCode}`;
+    const sessionKeyName = `checkers_sess_name_${roomCode}`;
+
+    let pId = sessionStorage.getItem(sessionKeyId);
+    let pName = sessionStorage.getItem(sessionKeyName);
     const user = AuthService.getCurrentUser();
 
     if (!pId) {
-      pId = user?.id || `chk_${Math.random().toString(36).substring(2, 9)}`;
+      // If joining with role=guest explicitly, generate a fresh unique guest ID
+      if (roleFromUrl === 'guest') {
+        pId = `chk_guest_${Math.random().toString(36).substring(2, 9)}`;
+      } else {
+        const localId = localStorage.getItem('checkers_player_id');
+        pId = localId || user?.id || `chk_${Math.random().toString(36).substring(2, 9)}`;
+      }
+      sessionStorage.setItem(sessionKeyId, pId);
       localStorage.setItem('checkers_player_id', pId);
     }
+
     if (!pName) {
-      pName = user?.name || `Player ${Math.floor(Math.random() * 900 + 100)}`;
-      localStorage.setItem('checkers_player_name', pName);
+      const localName = localStorage.getItem('checkers_player_name');
+      pName = localName || user?.name || (roleFromUrl === 'guest' ? 'Challenger' : 'Host');
+      sessionStorage.setItem(sessionKeyName, pName);
     }
 
     setMyPlayerId(pId);
@@ -146,7 +165,7 @@ export default function CheckersArenaPage() {
 
     const manager = getCheckersRoomManager(roomCode);
 
-    // Initial room fetch & role determination
+    // Initial room fetch & role assignment
     manager.fetchRoomAsync().then(async (fetchedRoom) => {
       if (!fetchedRoom) {
         setIsRoomNotFound(true);
@@ -159,28 +178,28 @@ export default function CheckersArenaPage() {
       if (fetchedRoom.winner) setWinner(fetchedRoom.winner);
       if (fetchedRoom.moveHistory) setMoveHistory(fetchedRoom.moveHistory);
 
-      // Determine if Host or Guest
-      if (fetchedRoom.hostId === pId) {
+      // Determine Host vs Guest
+      if (fetchedRoom.hostId === pId && roleFromUrl !== 'guest') {
         setMyRole('host');
       } else {
-        // Attempt to join as guest
-        const joinRes = await manager.joinAsGuest(pId, pName, 'zap');
-        if (joinRes.success) {
-          setMyRole('guest');
-          if (joinRes.room) {
+        // Must join as Guest
+        setMyRole('guest');
+        if (fetchedRoom.guestId !== pId) {
+          const joinRes = await manager.joinAsGuest(pId, pName, 'zap');
+          if (joinRes.success && joinRes.room) {
             setRoom(joinRes.room);
+            sound.playSelect();
+          } else if (joinRes.error === 'ROOM_FULL') {
+            setIsRoomFull(true);
+            sound.playWrong();
+          } else if (joinRes.error === 'ROOM_NOT_FOUND') {
+            setIsRoomNotFound(true);
           }
-          sound.playSelect();
-        } else if (joinRes.error === 'ROOM_FULL') {
-          setIsRoomFull(true);
-          sound.playWrong();
-        } else if (joinRes.error === 'ROOM_NOT_FOUND') {
-          setIsRoomNotFound(true);
         }
       }
     });
 
-    // Subscribe to real-time room events
+    // Realtime Broadcast Event Handler
     const unsubscribe = manager.subscribe((event: CheckersBroadcastEvent) => {
       if (event.type === 'CHECKERS_SYNC') {
         setRoom(event.room);
@@ -200,6 +219,7 @@ export default function CheckersArenaPage() {
       } else if (event.type === 'CHECKERS_START_MATCH') {
         sound.playStreak();
         setRoom(event.room);
+        if (event.room.currentTurn) setCurrentTurn(event.room.currentTurn);
       } else if (event.type === 'CHECKERS_MOVE') {
         setBoard(event.board);
         setCurrentTurn(event.nextTurn);
@@ -239,7 +259,41 @@ export default function CheckersArenaPage() {
     return () => {
       unsubscribe();
     };
-  }, [roomCode, isSolo, turnTimeLimit]);
+  }, [roomCode, isSolo, roleFromUrl, turnTimeLimit]);
+
+  // ---------------------------------------------------------------------------
+  // Active Database Syncer (Guarantees multi-device state updates even if WS is slow)
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (isSolo || !roomCode) return;
+
+    const manager = getCheckersRoomManager(roomCode);
+    const pollInterval = setInterval(async () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      
+      const dbRoom = await manager.fetchRoomAsync();
+      if (dbRoom) {
+        setRoom(prev => {
+          if (!prev) return dbRoom;
+          if (
+            prev.status !== dbRoom.status ||
+            prev.currentTurn !== dbRoom.currentTurn ||
+            prev.guestId !== dbRoom.guestId ||
+            (dbRoom.moveHistory && dbRoom.moveHistory.length !== (prev.moveHistory?.length || 0))
+          ) {
+            if (dbRoom.boardState) setBoard(dbRoom.boardState);
+            if (dbRoom.currentTurn) setCurrentTurn(dbRoom.currentTurn);
+            if (dbRoom.winner) setWinner(dbRoom.winner);
+            if (dbRoom.moveHistory) setMoveHistory(dbRoom.moveHistory);
+            return dbRoom;
+          }
+          return prev;
+        });
+      }
+    }, 1500);
+
+    return () => clearInterval(pollInterval);
+  }, [isSolo, roomCode]);
 
   // ---------------------------------------------------------------------------
   // 30-Second Countdown when 2nd Player Joins
@@ -277,6 +331,7 @@ export default function CheckersArenaPage() {
     const updated = await manager.startMatchNow();
     if (updated) {
       setRoom(updated);
+      if (updated.currentTurn) setCurrentTurn(updated.currentTurn);
     }
   };
 
@@ -438,22 +493,32 @@ export default function CheckersArenaPage() {
   // User Click Handler on Board Square
   // ---------------------------------------------------------------------------
   const handleSquareClick = (r: number, c: number) => {
-    if (winner || (isSolo && currentTurn !== myPlayerColor)) return;
-    if (!isSolo && currentTurn !== myPlayerColor) return;
-    if (!isSolo && room?.status !== 'PLAYING') return;
+    if (winner) return;
+    
+    // Guard against moving when it is not your turn
+    if (currentTurn !== myPlayerColor) {
+      sound.playWrong();
+      return;
+    }
+
+    if (!isSolo && room?.status !== 'PLAYING') {
+      return;
+    }
 
     const clickedPiece = board[r][c];
-    const isMyPiece = clickedPiece && isPieceOfPlayer(clickedPiece, currentTurn);
+    const isMyPiece = clickedPiece && isPieceOfPlayer(clickedPiece, myPlayerColor);
 
+    // If clicking on one of my pieces, select it
     if (isMyPiece) {
       if (mustJumpChainPos && (mustJumpChainPos.row !== r || mustJumpChainPos.col !== c)) {
-        return;
+        return; // Forced multi-jump chain with specific piece
       }
       sound.playPop();
       setSelectedPos({ row: r, col: c });
       return;
     }
 
+    // If a piece is selected and clicking on a destination
     if (selectedPos) {
       const allMoves = getLegalMoves(board, currentTurn, mustJumpChainPos);
       const chosenMove = allMoves.find(
@@ -596,7 +661,7 @@ export default function CheckersArenaPage() {
     : [];
 
   // ---------------------------------------------------------------------------
-  // Render: Room Full State
+  // Render: Room Full State (1v1 strict capacity)
   // ---------------------------------------------------------------------------
   if (isRoomFull) {
     return (
@@ -607,7 +672,7 @@ export default function CheckersArenaPage() {
           </div>
           <h2 className="text-2xl font-extrabold text-white mb-2">Room is Full</h2>
           <p className="text-slate-400 text-sm mb-6 leading-relaxed">
-            Checkers Arena is strictly a 1v1 battle arena between 2 players. Two challengers are already battling in room <span className="font-mono font-bold text-amber-400">{roomCode}</span>.
+            Checkers Arena is strictly a 1v1 battle match between 2 players. Two challengers are already battling in room <span className="font-mono font-bold text-amber-400">{roomCode}</span>.
           </p>
           <div className="space-y-3">
             <Link
@@ -910,12 +975,13 @@ export default function CheckersArenaPage() {
         /* VIEW B: ACTIVE 8x8 CHECKERS BOARD ARENA                               */
         /* --------------------------------------------------------------------- */
         <div className="relative z-10 w-full max-w-5xl mx-auto px-4 py-2 flex flex-col lg:flex-row items-center justify-center gap-6">
-          {/* Left / Opponent Profile HUD (Black Player or AI) */}
+          
+          {/* Left / Opponent Profile HUD */}
           <div className="w-full lg:w-48 flex lg:flex-col items-center justify-between lg:justify-center gap-3 p-4 bg-slate-900/60 backdrop-blur-md rounded-2xl border border-slate-800/80 shadow-xl">
             <div className="flex items-center lg:flex-col gap-3 text-left lg:text-center">
               <div className={`relative w-12 h-12 rounded-2xl flex items-center justify-center border-2 transition-all ${
-                currentTurn === 'black' 
-                  ? 'bg-slate-800 border-amber-400 shadow-lg shadow-amber-400/20 ring-2 ring-amber-400/50 scale-105' 
+                currentTurn === opponentColor 
+                  ? 'bg-amber-950/80 border-amber-400 shadow-lg shadow-amber-400/20 ring-2 ring-amber-400/50 scale-105' 
                   : 'bg-slate-900 border-slate-700'
               }`}>
                 {isSolo ? (
@@ -923,7 +989,7 @@ export default function CheckersArenaPage() {
                 ) : (
                   <Users className="w-6 h-6 text-slate-300" />
                 )}
-                {currentTurn === 'black' && (
+                {currentTurn === opponentColor && (
                   <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-amber-400 rounded-full animate-ping" />
                 )}
               </div>
@@ -937,38 +1003,46 @@ export default function CheckersArenaPage() {
                   )}
                 </h3>
                 <p className="text-[11px] text-slate-400 font-medium">
-                  Black Pieces • {12 - redCaptured} Left
+                  {opponentColor === 'red' ? 'Red Pieces (Moves 1st)' : 'Black Pieces (Moves 2nd)'}
+                </p>
+                <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                  {12 - (opponentColor === 'red' ? blackCaptured : redCaptured)} pieces left
                 </p>
               </div>
             </div>
 
-            {/* Captured Red Pieces by Black */}
+            {/* Pieces captured by opponent */}
             <div className="flex items-center gap-1 bg-slate-950/60 px-3 py-1.5 rounded-xl border border-slate-800 text-xs">
-              <span className="text-slate-400 font-bold">Captured:</span>
-              <div className="flex -space-x-1">
-                {Array.from({ length: Math.min(blackCaptured, 8) }).map((_, i) => (
-                  <div key={i} className="w-3.5 h-3.5 rounded-full bg-red-600 border border-red-300 shadow-sm" />
-                ))}
-              </div>
-              <span className="font-bold text-red-400 ml-1">+{blackCaptured}</span>
+              <span className="text-slate-400 font-bold text-[11px]">Captured:</span>
+              <span className="font-bold text-amber-400 ml-1">
+                +{opponentColor === 'red' ? redCaptured : blackCaptured}
+              </span>
             </div>
           </div>
 
           {/* Center: Interactive 8x8 Board */}
           <div className="flex flex-col items-center">
             {/* Turn Status Banner */}
-            <div className="mb-3 flex items-center justify-between w-full max-w-md px-4 py-2 bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-800 shadow-lg text-xs font-bold">
+            <div className="mb-3 flex items-center justify-between w-full max-w-md px-4 py-2.5 bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-800 shadow-xl">
               <div className="flex items-center gap-2">
-                <span className={`w-2.5 h-2.5 rounded-full ${
-                  currentTurn === 'red' ? 'bg-red-500 animate-pulse' : 'bg-slate-300 animate-pulse'
+                <span className={`w-3 h-3 rounded-full ${
+                  currentTurn === myPlayerColor ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400 animate-pulse'
                 }`} />
-                <span className="text-slate-300">
+                <span className="text-xs font-bold">
                   {isAiThinking ? (
                     <span className="text-amber-400 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 animate-spin" /> AI is calculating line...
+                      <Sparkles className="w-3.5 h-3.5 animate-spin" /> AI calculating moves...
                     </span>
                   ) : (
-                    currentTurn === myPlayerColor ? "Your Turn" : "Opponent's Turn"
+                    currentTurn === myPlayerColor ? (
+                      <span className="text-emerald-400 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5" /> Your Turn ({myPlayerColor.toUpperCase()})
+                      </span>
+                    ) : (
+                      <span className="text-amber-300 flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5" /> Opponent&apos;s Turn ({opponentColor.toUpperCase()})
+                      </span>
+                    )
                   )}
                 </span>
               </div>
@@ -993,6 +1067,7 @@ export default function CheckersArenaPage() {
                     const validDest = selectedDestinations.find(m => m.to.row === r && m.to.col === c);
                     const isJump = validDest && validDest.captures && validDest.captures.length > 0;
                     const isKingPiece = piece ? isKing(piece) : false;
+                    const isMyOwnPiece = piece && isPieceOfPlayer(piece, myPlayerColor);
 
                     return (
                       <div
@@ -1000,7 +1075,7 @@ export default function CheckersArenaPage() {
                         onClick={() => handleSquareClick(r, c)}
                         className={`relative flex items-center justify-center rounded-lg sm:rounded-xl cursor-pointer transition-all duration-150 ${
                           isDarkSquare ? 'bg-slate-800/90' : 'bg-slate-700/30'
-                        } ${isSelected ? 'ring-2 ring-amber-400 ring-inset shadow-inner' : ''} hover:brightness-110`}
+                        } ${isSelected ? 'ring-4 ring-amber-400 ring-inset shadow-inner' : ''} hover:brightness-110`}
                       >
                         {/* Valid Move Indicator Dot */}
                         {validDest && (
@@ -1020,7 +1095,7 @@ export default function CheckersArenaPage() {
                               piece === 'r' || piece === 'R'
                                 ? 'bg-gradient-to-b from-red-500 via-red-600 to-red-800 border-2 sm:border-4 border-red-300 text-white shadow-red-600/40'
                                 : 'bg-gradient-to-b from-slate-600 via-slate-800 to-slate-950 border-2 sm:border-4 border-slate-400 text-slate-100 shadow-black/60'
-                            }`}
+                            } ${isMyOwnPiece && currentTurn === myPlayerColor ? 'ring-2 ring-emerald-400/50' : ''}`}
                           >
                             <div className="w-5 h-5 sm:w-7 sm:h-7 rounded-full border border-white/20 flex items-center justify-center">
                               {isKingPiece && (
@@ -1050,38 +1125,42 @@ export default function CheckersArenaPage() {
             </div>
           </div>
 
-          {/* Right / Player Profile HUD (Red Player - You) */}
+          {/* Right / Your Profile HUD */}
           <div className="w-full lg:w-48 flex lg:flex-col items-center justify-between lg:justify-center gap-3 p-4 bg-slate-900/60 backdrop-blur-md rounded-2xl border border-slate-800/80 shadow-xl">
             <div className="flex items-center lg:flex-col gap-3 text-left lg:text-center">
               <div className={`relative w-12 h-12 rounded-2xl flex items-center justify-center border-2 transition-all ${
-                currentTurn === 'red' 
-                  ? 'bg-red-950/80 border-red-400 shadow-lg shadow-red-400/20 ring-2 ring-red-400/50 scale-105' 
+                currentTurn === myPlayerColor 
+                  ? 'bg-emerald-950/80 border-emerald-400 shadow-lg shadow-emerald-400/20 ring-2 ring-emerald-400/50 scale-105' 
                   : 'bg-slate-900 border-slate-700'
               }`}>
-                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-red-500 to-red-700 border border-red-300 shadow-inner" />
-                {currentTurn === 'red' && (
-                  <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-400 rounded-full animate-ping" />
+                <div className={`w-6 h-6 rounded-full border shadow-inner ${
+                  myPlayerColor === 'red'
+                    ? 'bg-gradient-to-br from-red-500 to-red-700 border-red-300'
+                    : 'bg-gradient-to-br from-slate-700 to-slate-900 border-slate-400'
+                }`} />
+                {currentTurn === myPlayerColor && (
+                  <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-400 rounded-full animate-ping" />
                 )}
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-200">
-                  {myPlayerColor === 'red' ? (isSolo ? 'You (Red)' : `${room?.hostName || 'You'} (Red)`) : 'Opponent (Red)'}
+                  {myRole === 'host' ? `${room?.hostName || myPlayerName} (You)` : `${room?.guestName || myPlayerName} (You)`}
                 </h3>
-                <p className="text-[11px] text-slate-400 font-medium">
-                  Red Pieces • {12 - blackCaptured} Left
+                <p className="text-[11px] text-emerald-400 font-medium">
+                  {myPlayerColor === 'red' ? 'Red Pieces (Moves 1st)' : 'Black Pieces (Moves 2nd)'}
+                </p>
+                <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                  {12 - (myPlayerColor === 'red' ? blackCaptured : redCaptured)} pieces left
                 </p>
               </div>
             </div>
 
-            {/* Captured Black Pieces by Red */}
+            {/* Pieces captured by you */}
             <div className="flex items-center gap-1 bg-slate-950/60 px-3 py-1.5 rounded-xl border border-slate-800 text-xs">
-              <span className="text-slate-400 font-bold">Captured:</span>
-              <div className="flex -space-x-1">
-                {Array.from({ length: Math.min(redCaptured, 8) }).map((_, i) => (
-                  <div key={i} className="w-3.5 h-3.5 rounded-full bg-slate-800 border border-slate-400 shadow-sm" />
-                ))}
-              </div>
-              <span className="font-bold text-indigo-400 ml-1">+{redCaptured}</span>
+              <span className="text-slate-400 font-bold text-[11px]">Captured:</span>
+              <span className="font-bold text-emerald-400 ml-1">
+                +{myPlayerColor === 'red' ? redCaptured : blackCaptured}
+              </span>
             </div>
           </div>
         </div>
