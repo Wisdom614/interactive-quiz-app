@@ -534,9 +534,12 @@ export function placeBlocusDot(
     winReason = `Reached target of ${state.winTarget} captured dots!`;
   }
 
-  // Next player's turn
+  // Capturing an opponent seed earns an immediate bonus placement. Otherwise,
+  // play passes normally to the next colour in the turn order.
   const currentIndex = state.turnOrder.indexOf(activeColor);
-  const nextTurn = state.turnOrder[(currentIndex + 1) % state.turnOrder.length];
+  const nextTurn = newCapturesCount > 0
+    ? activeColor
+    : state.turnOrder[(currentIndex + 1) % state.turnOrder.length];
 
   const newState: BlocusGameState = {
     ...state,
