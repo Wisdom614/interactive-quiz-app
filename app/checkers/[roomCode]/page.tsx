@@ -32,7 +32,9 @@ import {
   Flag,
   HelpCircle,
   Info,
-  Palette
+  Palette,
+  Maximize,
+  Minimize
 } from 'lucide-react';
 import { 
   BoardState, 
@@ -134,6 +136,72 @@ export default function CheckersArenaPage() {
   const toggleMute = () => {
     const muted = sound.toggleMute();
     setIsMuted(muted);
+  };
+
+  // Fullscreen view mode (optimized for mobile boards)
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isDocFullscreen = Boolean(
+        document.fullscreenElement ||
+        (document as unknown as { webkitFullscreenElement?: Element }).webkitFullscreenElement ||
+        (document as unknown as { mozFullScreenElement?: Element }).mozFullScreenElement ||
+        (document as unknown as { msFullscreenElement?: Element }).msFullscreenElement
+      );
+      setIsFullscreen(isDocFullscreen);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
+  }, []);
+
+  const toggleFullscreen = async () => {
+    sound.playSelect();
+    try {
+      if (!isFullscreen) {
+        const elem = document.documentElement as HTMLElement & {
+          webkitRequestFullscreen?: () => Promise<void>;
+          mozRequestFullScreen?: () => Promise<void>;
+          msRequestFullscreen?: () => Promise<void>;
+        };
+        if (elem.requestFullscreen) {
+          await elem.requestFullscreen();
+        } else if (elem.webkitRequestFullscreen) {
+          await elem.webkitRequestFullscreen();
+        } else if (elem.mozRequestFullScreen) {
+          await elem.mozRequestFullScreen();
+        } else if (elem.msRequestFullscreen) {
+          await elem.msRequestFullscreen();
+        }
+      } else {
+        const doc = document as Document & {
+          webkitExitFullscreen?: () => Promise<void>;
+          mozCancelFullScreen?: () => Promise<void>;
+          msExitFullscreen?: () => Promise<void>;
+        };
+        if (doc.exitFullscreen) {
+          await doc.exitFullscreen();
+        } else if (doc.webkitExitFullscreen) {
+          await doc.webkitExitFullscreen();
+        } else if (doc.mozCancelFullScreen) {
+          await doc.mozCancelFullScreen();
+        } else if (doc.msExitFullscreen) {
+          await doc.msExitFullscreen();
+        }
+      }
+    } catch (err) {
+      console.warn('Fullscreen toggle failed or permission denied:', err);
+    }
   };
 
   // Determine player colors based on role
@@ -924,7 +992,9 @@ export default function CheckersArenaPage() {
       </div>
 
       {/* Top Navigation Bar */}
-      <header className="relative z-10 w-full max-w-6xl mx-auto px-4 py-4 sm:py-6 flex items-center justify-between">
+      <header className={`relative z-10 w-full max-w-6xl mx-auto px-3 sm:px-4 flex items-center justify-between transition-all ${
+        isFullscreen ? 'py-1.5 sm:py-2' : 'py-3 sm:py-5'
+      }`}>
         <Link 
           href="/checkers"
           onClick={(e) => {
@@ -965,6 +1035,20 @@ export default function CheckersArenaPage() {
 
         {/* Action Controls */}
         <div className="flex items-center gap-2">
+          {/* Fullscreen Mobile View Toggle */}
+          <button
+            onClick={toggleFullscreen}
+            className="p-2 sm:px-2.5 py-2 rounded-none bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+            title={isFullscreen ? "Exit Fullscreen" : "Fullscreen Board (Mobile Optimized)"}
+          >
+            {isFullscreen ? (
+              <Minimize className="w-3.5 h-3.5 text-cyan-400" />
+            ) : (
+              <Maximize className="w-3.5 h-3.5 text-cyan-400" />
+            )}
+            <span className="hidden lg:inline">{isFullscreen ? "Exit" : "Fullscreen"}</span>
+          </button>
+
           {/* Rules Quick Guide Button */}
           <button
             onClick={() => setShowRulesModal(true)}
@@ -1192,10 +1276,14 @@ export default function CheckersArenaPage() {
         /* --------------------------------------------------------------------- */
         /* VIEW B: ACTIVE 8x8 CHECKERS BOARD ARENA (STREAMLINED & ERGONOMIC)     */
         /* --------------------------------------------------------------------- */
-        <div className="relative z-10 w-full max-w-lg mx-auto px-3 py-1 sm:py-2 flex flex-col items-center justify-center gap-2 flex-1 my-auto">
+        <div className={`relative z-10 w-full max-w-lg mx-auto flex flex-col items-center justify-center flex-1 my-auto transition-all ${
+          isFullscreen ? 'px-1 sm:px-3 py-0.5 gap-1.5' : 'px-3 py-1 sm:py-2 gap-2'
+        }`}>
           
           {/* 1. Opponent Bar (Top HUD) */}
-          <div className={`w-full bg-slate-900/90 border-2 rounded-none px-3.5 py-2 flex items-center justify-between shadow-xl backdrop-blur-md transition-all ${
+          <div className={`w-full bg-slate-900/90 border-2 rounded-none flex items-center justify-between shadow-xl backdrop-blur-md transition-all ${
+            isFullscreen ? 'px-3 py-1' : 'px-3.5 py-2'
+          } ${
             currentTurn === opponentColor 
               ? 'border-amber-500/50 shadow-amber-500/10 ring-1 ring-amber-500/30' 
               : 'border-slate-800/90'
@@ -1317,7 +1405,9 @@ export default function CheckersArenaPage() {
             }`} />
 
             {/* The Main Straight-Edge Beveled Board Frame */}
-            <div className={`relative p-2.5 sm:p-3.5 rounded-none border-4 transition-all duration-300 shadow-2xl ${
+            <div className={`relative rounded-none border-4 transition-all duration-300 shadow-2xl ${
+              isFullscreen ? 'p-1.5 sm:p-2.5' : 'p-2.5 sm:p-3.5'
+            } ${
               boardTheme === 'crimson' 
                 ? 'bg-neutral-950 border-rose-900 shadow-black ring-1 ring-rose-950' 
                 : boardTheme === 'wood' 
@@ -1333,7 +1423,11 @@ export default function CheckersArenaPage() {
                   : 'bg-black border-neutral-800'
               }`}>
                 {/* Seamless 8x8 Checkerboard Grid with Sharp Straight Edges */}
-                <div className="grid grid-cols-8 grid-rows-8 gap-0 w-[min(90vw,calc(100vh-320px),460px)] h-[min(90vw,calc(100vh-320px),460px)] border-2 border-black rounded-none overflow-hidden shadow-inner">
+                <div className={`grid grid-cols-8 grid-rows-8 gap-0 border-2 border-black rounded-none overflow-hidden shadow-inner transition-all duration-300 ${
+                  isFullscreen 
+                    ? 'w-[min(96vw,calc(100dvh-175px),540px)] h-[min(96vw,calc(100dvh-175px),540px)]' 
+                    : 'w-[min(90vw,calc(100dvh-300px),460px)] h-[min(90vw,calc(100dvh-300px),460px)]'
+                }`}>
               {displayRows.map((r, rowIdx) =>
                 displayCols.map((c, colIdx) => {
                   const piece = board[r][c];
@@ -1455,7 +1549,9 @@ export default function CheckersArenaPage() {
       </div>
 
           {/* 4. Player Bar (Your HUD, directly below board) */}
-          <div className={`w-full bg-slate-900/90 border-2 rounded-none px-3.5 py-2 flex items-center justify-between shadow-xl backdrop-blur-md transition-all ${
+          <div className={`w-full bg-slate-900/90 border-2 rounded-none flex items-center justify-between shadow-xl backdrop-blur-md transition-all ${
+            isFullscreen ? 'px-3 py-1' : 'px-3.5 py-2'
+          } ${
             currentTurn === myPlayerColor 
               ? 'border-emerald-500/50 shadow-emerald-500/10 ring-1 ring-emerald-500/30' 
               : 'border-slate-800/90'
@@ -1535,7 +1631,9 @@ export default function CheckersArenaPage() {
       )}
 
       {/* Move History Drawer (Bottom) */}
-      <div className="relative z-10 w-full max-w-4xl mx-auto px-4 py-3 flex items-center justify-between text-xs text-slate-400">
+      <div className={`relative z-10 w-full max-w-4xl mx-auto px-4 flex items-center justify-between text-xs text-slate-400 transition-all ${
+        isFullscreen ? 'py-1 text-[10px]' : 'py-2 sm:py-3'
+      }`}>
         <div className="flex items-center gap-2 overflow-x-auto py-1 max-w-md">
           <span className="font-bold uppercase tracking-wider text-[10px] text-slate-500">History:</span>
           {moveHistory.length === 0 ? (
