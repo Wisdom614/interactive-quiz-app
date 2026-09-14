@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { QRCodeSVG } from 'qrcode.react';
@@ -29,7 +29,9 @@ import {
   CheckCircle2,
   Radio,
   ShieldAlert,
-  Flag
+  Flag,
+  HelpCircle,
+  Info
 } from 'lucide-react';
 import { 
   BoardState, 
@@ -93,7 +95,18 @@ export default function CheckersArenaPage() {
   const [winner, setWinner] = useState<PlayerColor | 'draw' | null>(null);
   const [forfeitInfo, setForfeitInfo] = useState<{ winnerColor: PlayerColor | 'draw'; leaverName: string; reason: string } | null>(null);
   const [showForfeitModal, setShowForfeitModal] = useState(false);
+  const [showRulesModal, setShowRulesModal] = useState(false);
+  const [hintToast, setHintToast] = useState<{ message: string; type: 'warning' | 'info' } | null>(null);
 
+  const showFeedbackToast = (message: string, type: 'warning' | 'info' = 'warning') => {
+    setHintToast({ message, type });
+  };
+
+  useEffect(() => {
+    if (!hintToast) return;
+    const timer = setTimeout(() => setHintToast(null), 3200);
+    return () => clearTimeout(timer);
+  }, [hintToast]);
 
   // Stats & Clocks
   const [redCaptured, setRedCaptured] = useState(0);
@@ -131,6 +144,34 @@ export default function CheckersArenaPage() {
     : (myRole === 'host' ? 'red' : 'black');
     
   const opponentColor: PlayerColor = getOpponent(myPlayerColor);
+
+  // ---------------------------------------------------------------------------
+  // UX Move Calculation Helpers
+  // ---------------------------------------------------------------------------
+  const legalMovesForCurrentTurn = useMemo(() => {
+    return getLegalMoves(board, currentTurn, mustJumpChainPos);
+  }, [board, currentTurn, mustJumpChainPos]);
+
+  // Is a jump / capture mandatory right now for the active player?
+  const hasMandatoryCapture = useMemo(() => {
+    return legalMovesForCurrentTurn.some(m => m.captures && m.captures.length > 0);
+  }, [legalMovesForCurrentTurn]);
+
+  // Positions of pieces that have legal moves
+  const movablePositionsSet = useMemo(() => {
+    const set = new Set<string>();
+    legalMovesForCurrentTurn.forEach(m => set.add(`${m.from.row},${m.from.col}`));
+    return set;
+  }, [legalMovesForCurrentTurn]);
+
+  // Positions of pieces that can execute a capture
+  const jumpingPositionsSet = useMemo(() => {
+    const set = new Set<string>();
+    legalMovesForCurrentTurn
+      .filter(m => m.captures && m.captures.length > 0)
+      .forEach(m => set.add(`${m.from.row},${m.from.col}`));
+    return set;
+  }, [legalMovesForCurrentTurn]);
 
   // ---------------------------------------------------------------------------
   // Initialize Session-Isolated Player Identity & Connect to Room
@@ -583,11 +624,27 @@ export default function CheckersArenaPage() {
     const clickedPiece = board[r][c];
     const isMyPiece = clickedPiece && isPieceOfPlayer(clickedPiece, myPlayerColor);
 
-    // If clicking on one of my pieces, select it
+    // If clicking on one of my pieces, validate selection
     if (isMyPiece) {
       if (mustJumpChainPos && (mustJumpChainPos.row !== r || mustJumpChainPos.col !== c)) {
-        return; // Forced multi-jump chain with specific piece
+        showFeedbackToast('⚔️ Combo Jump in progress! You must continue with the active piece.', 'warning');
+        sound.playWrong();
+        return;
       }
+
+      const posKey = `${r},${c}`;
+      if (hasMandatoryCapture && !jumpingPositionsSet.has(posKey)) {
+        showFeedbackToast('⚡ Mandatory Capture! You must jump with the highlighted piece.', 'warning');
+        sound.playWrong();
+        return;
+      }
+
+      if (!movablePositionsSet.has(posKey)) {
+        showFeedbackToast('This piece is blocked and has no open moves.', 'warning');
+        sound.playWrong();
+        return;
+      }
+
       sound.playPop();
       setSelectedPos({ row: r, col: c });
       return;
@@ -595,8 +652,7 @@ export default function CheckersArenaPage() {
 
     // If a piece is selected and clicking on a destination
     if (selectedPos) {
-      const allMoves = getLegalMoves(board, currentTurn, mustJumpChainPos);
-      const chosenMove = allMoves.find(
+      const chosenMove = legalMovesForCurrentTurn.find(
         m => m.from.row === selectedPos.row &&
              m.from.col === selectedPos.col &&
              m.to.row === r &&
@@ -907,6 +963,16 @@ export default function CheckersArenaPage() {
 
         {/* Action Controls */}
         <div className="flex items-center gap-2">
+          {/* Rules Quick Guide Button */}
+          <button
+            onClick={() => setShowRulesModal(true)}
+            className="p-2 sm:px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+            title="Game Rules & Moves"
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-indigo-400" />
+            <span className="hidden sm:inline">Rules</span>
+          </button>
+
           {/* Resign / Forfeit Button */}
           {!isLobbyOrStarting && !winner && (
             <button
@@ -1110,277 +1176,311 @@ export default function CheckersArenaPage() {
         </div>
       ) : (
         /* --------------------------------------------------------------------- */
-        /* VIEW B: ACTIVE 8x8 CHECKERS BOARD ARENA                               */
+        /* VIEW B: ACTIVE 8x8 CHECKERS BOARD ARENA (STREAMLINED & ERGONOMIC)     */
         /* --------------------------------------------------------------------- */
-        <div className="relative z-10 w-full max-w-5xl mx-auto px-4 py-2 flex flex-col lg:flex-row items-center justify-center gap-6">
+        <div className="relative z-10 w-full max-w-lg mx-auto px-3 py-1 sm:py-2 flex flex-col items-center justify-center gap-2 flex-1 my-auto">
           
-          {/* Left / Opponent Profile HUD */}
-          <div className="w-full lg:w-48 flex lg:flex-col items-center justify-between lg:justify-center gap-3 p-4 bg-slate-900/60 backdrop-blur-md rounded-2xl border border-slate-800/80 shadow-xl">
-            <div className="flex items-center lg:flex-col gap-3 text-left lg:text-center">
-              <div className={`relative w-12 h-12 rounded-2xl flex items-center justify-center border-2 transition-all ${
+          {/* 1. Opponent Bar (Top HUD) */}
+          <div className={`w-full bg-slate-900/90 border rounded-2xl px-3.5 py-2 flex items-center justify-between shadow-xl backdrop-blur-md transition-all ${
+            currentTurn === opponentColor 
+              ? 'border-amber-500/50 shadow-amber-500/10 ring-1 ring-amber-500/30' 
+              : 'border-slate-800/90'
+          }`}>
+            <div className="flex items-center gap-2.5">
+              <div className={`relative w-10 h-10 rounded-xl flex items-center justify-center border-2 transition-all ${
                 currentTurn === opponentColor 
-                  ? 'bg-amber-950/80 border-amber-400 shadow-lg shadow-amber-400/20 ring-2 ring-amber-400/50 scale-105' 
-                  : 'bg-slate-900 border-slate-700'
+                  ? 'bg-amber-950/70 border-amber-400 shadow-md shadow-amber-400/20' 
+                  : 'bg-slate-950 border-slate-700'
               }`}>
                 {isSolo ? (
-                  <Bot className="w-6 h-6 text-slate-300" />
+                  <Bot className="w-5 h-5 text-slate-300" />
                 ) : (
-                  <Users className="w-6 h-6 text-slate-300" />
+                  <Users className="w-5 h-5 text-slate-300" />
                 )}
-                {currentTurn === opponentColor && (
-                  <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-amber-400 rounded-full animate-ping" />
-                )}
+                {/* Opponent Piece Color Pip */}
+                <div className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-slate-950 shadow ${
+                  opponentColor === 'red'
+                    ? 'bg-gradient-to-br from-red-500 to-red-700'
+                    : 'bg-gradient-to-br from-slate-700 to-slate-900'
+                }`} />
               </div>
+
               <div>
-                <h3 className="text-sm font-bold text-slate-200">
-                  {isSolo ? (
-                    aiDifficulty === 'EASY' ? 'Novice Bot' :
-                    aiDifficulty === 'MEDIUM' ? 'Tactician AI' : 'Grandmaster AI'
-                  ) : (
-                    myRole === 'host' ? (room?.guestName || 'Challenger') : (room?.hostName || 'Host')
-                  )}
-                </h3>
-                <p className="text-[11px] text-slate-400 font-medium">
-                  {opponentColor === 'red' ? 'Red Pieces (Moves 1st)' : 'Black Pieces (Moves 2nd)'}
-                </p>
-                <p className="text-[10px] text-slate-500 font-mono mt-0.5">
-                  {12 - (opponentColor === 'red' ? blackCaptured : redCaptured)} pieces left
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <h3 className="text-xs sm:text-sm font-extrabold text-white truncate max-w-[130px] sm:max-w-[180px]">
+                    {isSolo ? (
+                      aiDifficulty === 'EASY' ? 'Novice Bot' :
+                      aiDifficulty === 'MEDIUM' ? 'Tactician AI' : 'Grandmaster AI'
+                    ) : (
+                      myRole === 'host' ? (room?.guestName || 'Challenger') : (room?.hostName || 'Host')
+                    )}
+                  </h3>
+                  <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider ${
+                    opponentColor === 'red' ? 'bg-red-500/20 text-red-300' : 'bg-slate-800 text-slate-300'
+                  }`}>
+                    {opponentColor}
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-400 font-medium flex items-center gap-2 mt-0.5">
+                  <span>Captured: <b className="text-amber-400">+{opponentColor === 'red' ? redCaptured : blackCaptured}</b></span>
+                  <span>•</span>
+                  <span>{12 - (opponentColor === 'red' ? blackCaptured : redCaptured)} pieces left</span>
+                </div>
               </div>
             </div>
 
-            {/* Pieces captured by opponent */}
-            <div className="flex items-center gap-1 bg-slate-950/60 px-3 py-1.5 rounded-xl border border-slate-800 text-xs">
-              <span className="text-slate-400 font-bold text-[11px]">Captured:</span>
-              <span className="font-bold text-amber-400 ml-1">
-                +{opponentColor === 'red' ? redCaptured : blackCaptured}
-              </span>
+            {/* Opponent Status & Clock */}
+            <div>
+              {currentTurn === opponentColor ? (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-extrabold animate-pulse shadow-sm">
+                  <Clock className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                  <span>{isAiThinking ? 'AI Thinking' : 'Thinking'}</span>
+                  {turnTimeLimit > 0 && (
+                    <span className={`font-mono ml-0.5 ${turnTimeLeft <= 5 ? 'text-red-400 font-extrabold' : 'text-amber-200'}`}>
+                      {turnTimeLeft}s
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <span className="text-[11px] font-medium text-slate-500 px-2 py-1">
+                  Waiting for move
+                </span>
+              )}
             </div>
           </div>
 
-          {/* Center: Interactive 8x8 Board */}
-          <div className="flex flex-col items-center">
-            {/* Turn Status Banner */}
-            <div className="mb-3 flex items-center justify-between w-full max-w-md px-4 py-2.5 bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-800 shadow-xl">
-              <div className="flex items-center gap-2">
-                <span className={`w-3 h-3 rounded-full ${
-                  currentTurn === myPlayerColor ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400 animate-pulse'
-                }`} />
-                <span className="text-xs font-bold">
-                  {isAiThinking ? (
-                    <span className="text-amber-400 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 animate-spin" /> AI calculating moves...
-                    </span>
-                  ) : (
-                    currentTurn === myPlayerColor ? (
-                      <span className="text-emerald-400 flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5" /> Your Turn ({myPlayerColor.toUpperCase()})
-                      </span>
-                    ) : (
-                      <span className="text-amber-300 flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5" /> Opponent&apos;s Turn ({opponentColor.toUpperCase()})
-                      </span>
-                    )
-                  )}
-                </span>
+          {/* 2. Contextual Notification / Hint Toast Bar */}
+          <div className="w-full min-h-[30px] flex items-center justify-center">
+            {hintToast ? (
+              <div className={`px-3.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-lg animate-bounce ${
+                hintToast.type === 'warning' 
+                  ? 'bg-amber-500/25 border border-amber-500/40 text-amber-200 shadow-amber-500/10' 
+                  : 'bg-indigo-500/25 border border-indigo-500/40 text-indigo-200 shadow-indigo-500/10'
+              }`}>
+                <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
+                <span>{hintToast.message}</span>
               </div>
-
-              {turnTimeLimit > 0 && (
-                <div className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-mono text-xs ${
-                  turnTimeLeft <= 5 ? 'bg-red-500/20 text-red-400 animate-pulse' : 'bg-slate-800 text-slate-300'
-                }`}>
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>{turnTimeLeft}s</span>
-                </div>
-              )}
-            </div>
-
-            {/* Last Move Tracker Banner */}
-            {lastMove && (
-              <div className="mb-2.5 flex items-center gap-2 px-3.5 py-1 bg-slate-900/90 border border-slate-800 rounded-full text-xs text-slate-300 shadow-md animate-fade-in">
-                <span className="flex h-2 w-2 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Spot Played:</span>
+            ) : hasMandatoryCapture && currentTurn === myPlayerColor ? (
+              <div className="px-3.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-extrabold flex items-center gap-1.5 shadow-md shadow-amber-500/10 animate-pulse">
+                <Zap className="w-3.5 h-3.5 text-amber-400" />
+                <span>Mandatory Capture! Jump with the highlighted piece</span>
+              </div>
+            ) : mustJumpChainPos && currentTurn === myPlayerColor ? (
+              <div className="px-3.5 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-xs font-extrabold flex items-center gap-1.5 shadow-md shadow-indigo-500/10 animate-bounce">
+                <Flame className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Combo Jump! Continue jumping with active piece</span>
+              </div>
+            ) : lastMove ? (
+              <div className="px-3 py-0.5 rounded-full bg-slate-900/80 border border-slate-800 text-[11px] text-slate-400 flex items-center gap-1.5 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                <span className="text-slate-500">Last:</span>
                 <span className="font-mono font-bold text-amber-300">
                   {String.fromCharCode(65 + lastMove.from.col)}{8 - lastMove.from.row}
                 </span>
-                <span className="text-slate-500 text-[10px]">➔</span>
+                <span>➔</span>
                 <span className="font-mono font-bold text-emerald-400">
                   {String.fromCharCode(65 + lastMove.to.col)}{8 - lastMove.to.row}
                 </span>
                 {lastMove.captures && lastMove.captures.length > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold ml-0.5">
+                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">
                     +{lastMove.captures.length} captured
                   </span>
                 )}
               </div>
-            )}
-
-            {/* The 8x8 Board Canvas */}
-            <div className="relative p-2.5 sm:p-3 bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 rounded-3xl border-2 border-slate-700/80 shadow-2xl">
-              <div className="grid grid-cols-8 grid-rows-8 gap-1 w-[320px] h-[320px] sm:w-[440px] sm:h-[440px] md:w-[480px] md:h-[480px]">
-                {displayRows.map((r, rowIdx) =>
-                  displayCols.map((c, colIdx) => {
-                    const piece = board[r][c];
-                    const isDarkSquare = (r + c) % 2 === 1;
-                    const isSelected = selectedPos?.row === r && selectedPos?.col === c;
-                    const isLastMoveFrom = lastMove?.from && lastMove.from.row === r && lastMove.from.col === c;
-                    const isLastMoveTo = lastMove?.to && lastMove.to.row === r && lastMove.to.col === c;
-                    const validDest = selectedDestinations.find(m => m.to.row === r && m.to.col === c);
-                    const isJump = validDest && validDest.captures && validDest.captures.length > 0;
-                    const isKingPiece = piece ? isKing(piece) : false;
-                    const isMyOwnPiece = piece ? isPieceOfPlayer(piece, myPlayerColor) : false;
-                    const isOpponentPiece = piece ? !isPieceOfPlayer(piece, myPlayerColor) : false;
-                    const isMyTurn = currentTurn === myPlayerColor;
-                    const isForcedChainPiece = mustJumpChainPos && mustJumpChainPos.row === r && mustJumpChainPos.col === c;
-
-                    return (
-                      <div
-                        key={`${r}-${c}`}
-                        onClick={() => handleSquareClick(r, c)}
-                        className={`relative flex items-center justify-center rounded-lg sm:rounded-xl transition-all duration-150 ${
-                          isDarkSquare ? 'bg-slate-800/90' : 'bg-slate-700/30'
-                        } ${
-                          isSelected ? 'ring-4 ring-amber-400 ring-inset shadow-inner' : ''
-                        } ${
-                          isLastMoveTo ? 'ring-4 ring-emerald-400 ring-inset bg-emerald-950/30 shadow-[0_0_12px_rgba(52,211,153,0.35)]' : ''
-                        } ${
-                          isLastMoveFrom ? 'ring-2 ring-amber-400/60 ring-dashed bg-amber-950/20' : ''
-                        } ${
-                          isMyTurn ? 'cursor-pointer hover:brightness-110' : 'cursor-default'
-                        }`}
-                      >
-                        {/* Algebraic edge coordinates */}
-                        {colIdx === 0 && (
-                          <span className="absolute top-0.5 left-1 text-[9px] font-mono font-bold text-slate-500/70 select-none pointer-events-none">
-                            {8 - r}
-                          </span>
-                        )}
-                        {rowIdx === 7 && (
-                          <span className="absolute bottom-0.5 right-1 text-[9px] font-mono font-bold text-slate-500/70 select-none pointer-events-none">
-                            {String.fromCharCode(65 + c)}
-                          </span>
-                        )}
-
-                        {/* Realtime Last Move Target Spot Indicator */}
-                        {isLastMoveTo && (
-                          <span className="absolute -top-1 -right-1 z-20 flex h-3.5 w-3.5 pointer-events-none">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                            <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border border-white/80 shadow" />
-                          </span>
-                        )}
-
-                        {/* Realtime Last Move Origin Marker */}
-                        {isLastMoveFrom && !piece && (
-                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-40">
-                            <div className="w-3.5 h-3.5 rounded-full border-2 border-dashed border-amber-300" />
-                          </div>
-                        )}
-
-                        {/* Valid Move Indicator Dot */}
-                        {validDest && (
-                          <div className={`absolute z-20 rounded-full transition-transform transform scale-100 ${
-                            isJump 
-                              ? 'w-5 h-5 sm:w-6 sm:h-6 bg-amber-500/80 border-2 border-white shadow-lg animate-pulse' 
-                              : 'w-3.5 h-3.5 sm:w-4 sm:h-4 bg-emerald-400/80 shadow-md'
-                          }`} />
-                        )}
-
-                        {/* Checkers Piece with UX Turn Dimming & Perspective */}
-                        {piece && (
-                          <div
-                            className={`relative w-8 h-8 sm:w-11 sm:h-11 md:w-12 md:h-12 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shadow-xl transition-all duration-300 transform ${
-                              isSelected ? 'scale-110 -translate-y-1' : ''
-                            } ${
-                              piece === 'r' || piece === 'R'
-                                ? 'bg-gradient-to-b from-red-500 via-red-600 to-red-800 border-2 sm:border-4 border-red-300 text-white shadow-red-600/40'
-                                : 'bg-gradient-to-b from-slate-600 via-slate-800 to-slate-950 border-2 sm:border-4 border-slate-400 text-slate-100 shadow-black/60'
-                            } ${
-                              // Turn-based graying out & visual prioritization
-                              !isMyTurn && isMyOwnPiece
-                                ? 'grayscale-[90%] opacity-35 brightness-75 contrast-75 cursor-not-allowed shadow-none select-none'
-                                : !isMyTurn && isOpponentPiece
-                                ? 'ring-2 ring-amber-400/80 shadow-md shadow-amber-400/25 animate-pulse'
-                                : isMyTurn && isMyOwnPiece
-                                ? isForcedChainPiece
-                                  ? 'ring-4 ring-amber-400 shadow-xl shadow-amber-400/50 animate-bounce cursor-pointer'
-                                  : isSelected
-                                  ? 'ring-4 ring-amber-400 shadow-xl shadow-amber-400/50 cursor-pointer'
-                                  : 'ring-2 ring-emerald-400/90 shadow-emerald-400/30 cursor-pointer hover:scale-105 active:scale-95'
-                                : 'grayscale-[85%] opacity-35 contrast-85 brightness-90 pointer-events-none shadow-none select-none'
-                            }`}
-                          >
-                            <div className="w-5 h-5 sm:w-7 sm:h-7 rounded-full border border-white/20 flex items-center justify-center">
-                              {isKingPiece && (
-                                <Crown className={`w-3.5 h-3.5 sm:w-5 sm:h-5 drop-shadow transition-colors ${
-                                  (isMyTurn && isMyOwnPiece) || (!isMyTurn && isOpponentPiece)
-                                    ? 'text-amber-300 animate-pulse'
-                                    : 'text-slate-500/70'
-                                }`} />
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
+            ) : (
+              <div className="text-[11px] text-slate-500 flex items-center gap-1 font-medium">
+                <Swords className="w-3 h-3 text-slate-600" />
+                <span>African Draughts • Flying Kings Enabled</span>
               </div>
-            </div>
+            )}
+          </div>
 
-            {/* Quick Reaction Emoji Bar */}
-            <div className="mt-3 flex items-center gap-2">
-              {['🔥', '👏', '👑', '💀', '🧠'].map((emoji) => (
-                <button
-                  key={emoji}
-                  onClick={() => triggerEmoji(emoji, true)}
-                  className="p-2 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 hover:scale-110 active:scale-95 transition text-lg"
-                >
-                  {emoji}
-                </button>
-              ))}
+          {/* 3. Center: Interactive 8x8 Board Canvas */}
+          <div className="relative p-2 sm:p-2.5 bg-gradient-to-br from-slate-900 via-slate-950 to-black rounded-3xl border-2 border-slate-700/80 shadow-2xl shadow-black/80 ring-1 ring-slate-800">
+            <div className="grid grid-cols-8 grid-rows-8 gap-1 w-[min(90vw,calc(100vh-320px),460px)] h-[min(90vw,calc(100vh-320px),460px)]">
+              {displayRows.map((r, rowIdx) =>
+                displayCols.map((c, colIdx) => {
+                  const piece = board[r][c];
+                  const isDarkSquare = (r + c) % 2 === 1;
+                  const isSelected = selectedPos?.row === r && selectedPos?.col === c;
+                  const isLastMoveFrom = lastMove?.from && lastMove.from.row === r && lastMove.from.col === c;
+                  const isLastMoveTo = lastMove?.to && lastMove.to.row === r && lastMove.to.col === c;
+                  const validDest = selectedDestinations.find(m => m.to.row === r && m.to.col === c);
+                  const isJump = validDest && validDest.captures && validDest.captures.length > 0;
+                  const isKingPiece = piece ? isKing(piece) : false;
+                  const isMyOwnPiece = piece ? isPieceOfPlayer(piece, myPlayerColor) : false;
+                  const isMyTurn = currentTurn === myPlayerColor;
+                  const posKey = `${r},${c}`;
+                  const isMovablePiece = isMyTurn && isMyOwnPiece && movablePositionsSet.has(posKey);
+                  const isJumpingPiece = isMyTurn && isMyOwnPiece && jumpingPositionsSet.has(posKey);
+                  const isForcedChainPiece = mustJumpChainPos && mustJumpChainPos.row === r && mustJumpChainPos.col === c;
+
+                  return (
+                    <div
+                      key={`${r}-${c}`}
+                      onClick={() => handleSquareClick(r, c)}
+                      className={`relative flex items-center justify-center rounded-lg sm:rounded-xl transition-all duration-150 ${
+                        isDarkSquare ? 'bg-slate-900/95' : 'bg-slate-800/40'
+                      } ${
+                        isSelected ? 'ring-4 ring-amber-400 ring-inset bg-amber-950/20' : ''
+                      } ${
+                        isLastMoveTo ? 'ring-4 ring-emerald-400/90 ring-inset bg-emerald-950/30 shadow-[0_0_12px_rgba(52,211,153,0.35)]' : ''
+                      } ${
+                        isLastMoveFrom ? 'ring-2 ring-amber-400/40 ring-dashed bg-amber-950/10' : ''
+                      } ${
+                        isMyTurn && (isMovablePiece || isSelected || validDest) ? 'cursor-pointer hover:brightness-110' : 'cursor-default'
+                      }`}
+                    >
+                      {/* Algebraic edge coordinates */}
+                      {colIdx === 0 && (
+                        <span className="absolute top-0.5 left-1 text-[8px] sm:text-[9px] font-mono font-bold text-slate-600 select-none pointer-events-none">
+                          {8 - r}
+                        </span>
+                      )}
+                      {rowIdx === 7 && (
+                        <span className="absolute bottom-0.5 right-1 text-[8px] sm:text-[9px] font-mono font-bold text-slate-600 select-none pointer-events-none">
+                          {String.fromCharCode(65 + c)}
+                        </span>
+                      )}
+
+                      {/* Realtime Last Move Target Spot Indicator */}
+                      {isLastMoveTo && (
+                        <span className="absolute -top-1 -right-1 z-20 flex h-3.5 w-3.5 pointer-events-none">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border border-white/80 shadow" />
+                        </span>
+                      )}
+
+                      {/* Realtime Last Move Origin Marker */}
+                      {isLastMoveFrom && !piece && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-40">
+                          <div className="w-3.5 h-3.5 rounded-full border-2 border-dashed border-amber-300" />
+                        </div>
+                      )}
+
+                      {/* Valid Move Indicator Dots */}
+                      {validDest && (
+                        isJump ? (
+                          <div className="absolute z-20 w-6 h-6 sm:w-7 sm:h-7 rounded-full border-2 border-amber-300 bg-amber-500/80 animate-pulse shadow-lg shadow-amber-500/50 flex items-center justify-center pointer-events-none">
+                            <div className="w-2 h-2 rounded-full bg-white shadow" />
+                          </div>
+                        ) : (
+                          <div className="absolute z-20 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-emerald-400/90 shadow-md shadow-emerald-400/50 flex items-center justify-center pointer-events-none" />
+                        )
+                      )}
+
+                      {/* Tactile Checkers Piece */}
+                      {piece && (
+                        <div
+                          className={`relative w-8 h-8 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shadow-xl transition-all duration-200 transform ${
+                            piece === 'r' || piece === 'R'
+                              ? 'bg-gradient-to-b from-red-500 via-red-600 to-red-800 border-2 sm:border-[3px] border-red-300/90 text-white shadow-red-600/35'
+                              : 'bg-gradient-to-b from-slate-600 via-slate-800 to-slate-950 border-2 sm:border-[3px] border-slate-400/90 text-slate-100 shadow-black/80'
+                          } ${
+                            // Turn-based highlighting & selection feedback
+                            isSelected
+                              ? 'ring-4 ring-amber-400 shadow-2xl shadow-amber-400/70 scale-110 -translate-y-1 z-30'
+                              : isForcedChainPiece
+                              ? 'ring-4 ring-amber-400 shadow-xl shadow-amber-400/60 animate-bounce cursor-pointer z-20'
+                              : hasMandatoryCapture && isJumpingPiece
+                              ? 'ring-4 ring-amber-400/90 shadow-lg shadow-amber-400/40 animate-pulse cursor-pointer hover:scale-105 z-20'
+                              : isMovablePiece
+                              ? 'ring-2 ring-emerald-400/80 shadow-md shadow-emerald-400/30 cursor-pointer hover:scale-105 active:scale-95'
+                              : isMyTurn && isMyOwnPiece
+                              ? 'opacity-80 cursor-not-allowed'
+                              : 'cursor-default'
+                          }`}
+                        >
+                          <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full border border-white/20 flex items-center justify-center">
+                            {isKingPiece && (
+                              <Crown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-300 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] animate-pulse" />
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
 
-          {/* Right / Your Profile HUD */}
-          <div className="w-full lg:w-48 flex lg:flex-col items-center justify-between lg:justify-center gap-3 p-4 bg-slate-900/60 backdrop-blur-md rounded-2xl border border-slate-800/80 shadow-xl">
-            <div className="flex items-center lg:flex-col gap-3 text-left lg:text-center">
-              <div className={`relative w-12 h-12 rounded-2xl flex items-center justify-center border-2 transition-all ${
+          {/* 4. Player Bar (Your HUD, directly below board) */}
+          <div className={`w-full bg-slate-900/90 border rounded-2xl px-3.5 py-2 flex items-center justify-between shadow-xl backdrop-blur-md transition-all ${
+            currentTurn === myPlayerColor 
+              ? 'border-emerald-500/50 shadow-emerald-500/10 ring-1 ring-emerald-500/30' 
+              : 'border-slate-800/90'
+          }`}>
+            <div className="flex items-center gap-2.5">
+              <div className={`relative w-10 h-10 rounded-xl flex items-center justify-center border-2 transition-all ${
                 currentTurn === myPlayerColor 
-                  ? 'bg-emerald-950/80 border-emerald-400 shadow-lg shadow-emerald-400/20 ring-2 ring-emerald-400/50 scale-105' 
-                  : 'bg-slate-900 border-slate-700'
+                  ? 'bg-emerald-950/70 border-emerald-400 shadow-md shadow-emerald-400/20' 
+                  : 'bg-slate-950 border-slate-700'
               }`}>
-                <div className={`w-6 h-6 rounded-full border shadow-inner ${
+                <div className={`w-5 h-5 rounded-full border shadow-inner ${
                   myPlayerColor === 'red'
                     ? 'bg-gradient-to-br from-red-500 to-red-700 border-red-300'
                     : 'bg-gradient-to-br from-slate-700 to-slate-900 border-slate-400'
                 }`} />
-                {currentTurn === myPlayerColor && (
-                  <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-400 rounded-full animate-ping" />
-                )}
+                {/* Your Piece Color Pip */}
+                <div className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-slate-950 shadow ${
+                  myPlayerColor === 'red'
+                    ? 'bg-gradient-to-br from-red-500 to-red-700'
+                    : 'bg-gradient-to-br from-slate-700 to-slate-900'
+                }`} />
               </div>
+
               <div>
-                <h3 className="text-sm font-bold text-slate-200">
-                  {myRole === 'host' ? `${room?.hostName || myPlayerName} (You)` : `${room?.guestName || myPlayerName} (You)`}
-                </h3>
-                <p className="text-[11px] text-emerald-400 font-medium">
-                  {myPlayerColor === 'red' ? 'Red Pieces (Moves 1st)' : 'Black Pieces (Moves 2nd)'}
-                </p>
-                <p className="text-[10px] text-slate-500 font-mono mt-0.5">
-                  {12 - (myPlayerColor === 'red' ? blackCaptured : redCaptured)} pieces left
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <h3 className="text-xs sm:text-sm font-extrabold text-white truncate max-w-[130px] sm:max-w-[180px]">
+                    {myRole === 'host' ? `${room?.hostName || myPlayerName}` : `${room?.guestName || myPlayerName}`}
+                  </h3>
+                  <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider ${
+                    myPlayerColor === 'red' ? 'bg-red-500/20 text-red-300' : 'bg-slate-800 text-slate-300'
+                  }`}>
+                    YOU ({myPlayerColor})
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-400 font-medium flex items-center gap-2 mt-0.5">
+                  <span>Captured: <b className="text-emerald-400">+{myPlayerColor === 'red' ? redCaptured : blackCaptured}</b></span>
+                  <span>•</span>
+                  <span>{12 - (myPlayerColor === 'red' ? blackCaptured : redCaptured)} pieces left</span>
+                </div>
               </div>
             </div>
 
-            {/* Pieces captured by you */}
-            <div className="flex items-center gap-1 bg-slate-950/60 px-3 py-1.5 rounded-xl border border-slate-800 text-xs">
-              <span className="text-slate-400 font-bold text-[11px]">Captured:</span>
-              <span className="font-bold text-emerald-400 ml-1">
-                +{myPlayerColor === 'red' ? redCaptured : blackCaptured}
-              </span>
+            {/* Your Status & Clock */}
+            <div>
+              {currentTurn === myPlayerColor ? (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-extrabold shadow-sm shadow-emerald-500/10">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
+                  <span>YOUR TURN</span>
+                  {turnTimeLimit > 0 && (
+                    <span className={`font-mono ml-0.5 ${turnTimeLeft <= 5 ? 'text-red-400 font-extrabold animate-pulse' : 'text-emerald-200'}`}>
+                      {turnTimeLeft}s
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <span className="text-[11px] font-medium text-slate-500 px-2 py-1">
+                  Opponent&apos;s turn
+                </span>
+              )}
             </div>
+          </div>
+
+          {/* 5. In-Game Emoji Reactions Strip */}
+          <div className="flex items-center justify-center gap-2 pt-0.5">
+            {['🔥', '👏', '👑', '💀', '🧠'].map((emoji) => (
+              <button
+                key={emoji}
+                onClick={() => triggerEmoji(emoji, true)}
+                className="w-9 h-9 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 hover:scale-110 active:scale-95 transition text-base flex items-center justify-center shadow-sm"
+                title={`Send ${emoji}`}
+              >
+                {emoji}
+              </button>
+            ))}
           </div>
         </div>
       )}
@@ -1565,6 +1665,76 @@ export default function CheckersArenaPage() {
             >
               {copiedLink ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
               {copiedLink ? 'Link Copied!' : 'Copy Invite Link'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Rules & Moves Guide Modal */}
+      {showRulesModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-3xl p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setShowRulesModal(false)}
+              className="absolute top-4 right-4 p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center mb-3 text-indigo-400">
+              <HelpCircle className="w-6 h-6" />
+            </div>
+
+            <h3 className="text-xl font-extrabold text-white mb-1">Checkers & Draughts Rules</h3>
+            <p className="text-xs text-slate-400 mb-5">Rules of the Cameroon & African Draughts Arena</p>
+
+            <div className="space-y-3.5 text-left text-xs sm:text-sm">
+              <div className="p-3 rounded-2xl bg-slate-800/60 border border-slate-700/60">
+                <div className="flex items-center gap-2 font-bold text-amber-300 mb-1">
+                  <Zap className="w-4 h-4 text-amber-400" />
+                  <span>Mandatory Jumps</span>
+                </div>
+                <p className="text-slate-300 leading-relaxed text-xs">
+                  Whenever a capture is available on the board, <b>capturing is mandatory</b>. Normal moves cannot be made while any jump is open.
+                </p>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-slate-800/60 border border-slate-700/60">
+                <div className="flex items-center gap-2 font-bold text-emerald-300 mb-1">
+                  <Crown className="w-4 h-4 text-amber-300" />
+                  <span>Flying Kings (Dames)</span>
+                </div>
+                <p className="text-slate-300 leading-relaxed text-xs">
+                  Reaching the opposite back rank crowns your piece into a <b>King</b>. Kings can fly across multiple vacant diagonal squares in all four directions!
+                </p>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-slate-800/60 border border-slate-700/60">
+                <div className="flex items-center gap-2 font-bold text-indigo-300 mb-1">
+                  <Flame className="w-4 h-4 text-indigo-400" />
+                  <span>Combo Multi-Jumps</span>
+                </div>
+                <p className="text-slate-300 leading-relaxed text-xs">
+                  If your piece makes a jump and lands where another capture is immediately possible, you must continue jumping in the same turn.
+                </p>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-slate-800/60 border border-slate-700/60">
+                <div className="flex items-center gap-2 font-bold text-rose-300 mb-1">
+                  <Clock className="w-4 h-4 text-rose-400" />
+                  <span>30-Second Turn Clock</span>
+                </div>
+                <p className="text-slate-300 leading-relaxed text-xs">
+                  Each turn has a countdown timer. Play your move before the timer expires to keep the game flowing!
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowRulesModal(false)}
+              className="mt-6 w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition shadow-lg shadow-indigo-600/30"
+            >
+              Got It • Back to Game
             </button>
           </div>
         </div>
