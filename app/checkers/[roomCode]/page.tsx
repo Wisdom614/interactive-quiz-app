@@ -844,8 +844,8 @@ export default function CheckersArenaPage() {
   if (isRoomFull) {
     return (
       <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
-        <div className="w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-3xl p-8 text-center shadow-2xl backdrop-blur-xl">
-          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto mb-4 text-amber-400">
+        <div className="w-full max-w-md bg-slate-900/90 border-2 border-slate-800 rounded-none p-8 text-center shadow-2xl backdrop-blur-xl">
+          <div className="w-16 h-16 rounded-none bg-amber-500/10 border-2 border-amber-500/30 flex items-center justify-center mx-auto mb-4 text-amber-400">
             <Users className="w-8 h-8" />
           </div>
           <h2 className="text-2xl font-extrabold text-white mb-2">Room is Full</h2>
@@ -855,13 +855,13 @@ export default function CheckersArenaPage() {
           <div className="space-y-3">
             <Link
               href="/checkers"
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold text-sm block transition shadow-lg shadow-red-600/30"
+              className="w-full py-3.5 rounded-none bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold text-sm block transition shadow-lg shadow-red-600/30"
             >
               Create Your Own Room
             </Link>
             <Link
               href="/"
-              className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm block transition"
+              className="w-full py-3 rounded-none bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm block transition"
             >
               Back to Home Hub
             </Link>
@@ -877,8 +877,8 @@ export default function CheckersArenaPage() {
   if (isRoomNotFound) {
     return (
       <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
-        <div className="w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-3xl p-8 text-center shadow-2xl backdrop-blur-xl">
-          <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mx-auto mb-4 text-rose-400">
+        <div className="w-full max-w-md bg-slate-900/90 border-2 border-slate-800 rounded-none p-8 text-center shadow-2xl backdrop-blur-xl">
+          <div className="w-16 h-16 rounded-none bg-rose-500/10 border-2 border-rose-500/30 flex items-center justify-center mx-auto mb-4 text-rose-400">
             <AlertCircle className="w-8 h-8" />
           </div>
           <h2 className="text-2xl font-extrabold text-white mb-2">Room Not Found</h2>
@@ -887,7 +887,7 @@ export default function CheckersArenaPage() {
           </p>
           <Link
             href="/checkers"
-            className="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm block transition shadow-lg shadow-indigo-600/30"
+            className="w-full py-3.5 rounded-none bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm block transition shadow-lg shadow-indigo-600/30"
           >
             Go to Checkers Lobby
           </Link>
@@ -935,7 +935,7 @@ export default function CheckersArenaPage() {
           }}
           className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors group"
         >
-          <div className="p-2 rounded-xl bg-slate-900 border border-slate-800 group-hover:border-slate-700">
+          <div className="p-2 rounded-none bg-slate-900 border border-slate-800 group-hover:border-slate-700">
             <ArrowLeft className="w-5 h-5 text-slate-300" />
           </div>
           <span className="font-semibold text-sm hidden sm:inline">Checkers Lobby</span>
@@ -943,19 +943,19 @@ export default function CheckersArenaPage() {
 
         {/* Room Code & Sharing Badge (Multiplayer) */}
         {!isSolo && (
-          <div className="flex items-center gap-2 bg-slate-900/90 border border-slate-800 rounded-2xl px-3 sm:px-4 py-1.5 shadow-lg">
+          <div className="flex items-center gap-2 bg-slate-900/90 border border-slate-800 rounded-none px-3 sm:px-4 py-1.5 shadow-lg">
             <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider hidden sm:inline">Room:</span>
             <span className="font-mono font-extrabold text-indigo-400 text-sm tracking-wider">{roomCode}</span>
             <button
               onClick={copyRoomPin}
-              className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition"
+              className="p-1 hover:bg-slate-800 rounded-none text-slate-400 hover:text-white transition"
               title="Copy Room PIN"
             >
               {copiedPin ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
             </button>
             <button
               onClick={() => setShowQrModal(true)}
-              className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition"
+              className="p-1 hover:bg-slate-800 rounded-none text-slate-400 hover:text-white transition"
               title="Show QR Code"
             >
               <QrCode className="w-4 h-4" />
@@ -968,7 +968,7 @@ export default function CheckersArenaPage() {
           {/* Rules Quick Guide Button */}
           <button
             onClick={() => setShowRulesModal(true)}
-            className="p-2 sm:px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+            className="p-2 sm:px-3 py-2 rounded-none bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
             title="Game Rules & Moves"
           >
             <HelpCircle className="w-3.5 h-3.5 text-indigo-400" />
@@ -981,7 +981,7 @@ export default function CheckersArenaPage() {
               setBoardTheme(prev => prev === 'classic' ? 'crimson' : prev === 'crimson' ? 'wood' : 'classic');
               sound.playSelect();
             }}
-            className="p-2 sm:px-2.5 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+            className="p-2 sm:px-2.5 py-2 rounded-none bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
             title={`Board Grid Style: ${boardTheme === 'classic' ? 'Classic Black & White' : boardTheme === 'crimson' ? 'Crimson & Black' : 'Tournament Wood'}`}
           >
             <Palette className="w-3.5 h-3.5 text-amber-400" />
@@ -992,7 +992,7 @@ export default function CheckersArenaPage() {
           {!isLobbyOrStarting && !winner && (
             <button
               onClick={() => setShowForfeitModal(true)}
-              className="px-2.5 sm:px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 hover:text-rose-200 text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+              className="px-2.5 sm:px-3 py-2 rounded-none bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 hover:text-rose-200 text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
               title="Forfeit / Resign match"
             >
               <Flag className="w-3.5 h-3.5 text-rose-400" />
@@ -1003,7 +1003,7 @@ export default function CheckersArenaPage() {
           {!isLobbyOrStarting && (
             <button
               onClick={() => resetGame(true)}
-              className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition"
+              className="p-2.5 rounded-none bg-slate-900/80 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition"
               title="Reset Game / Rematch"
             >
               <RotateCcw className="w-4 h-4" />
@@ -1011,7 +1011,7 @@ export default function CheckersArenaPage() {
           )}
           <button
             onClick={toggleMute}
-            className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition"
+            className="p-2.5 rounded-none bg-slate-900/80 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition"
             title={isMuted ? "Unmute Sound" : "Mute Sound"}
           >
             {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-slate-300" />}
@@ -1026,7 +1026,7 @@ export default function CheckersArenaPage() {
         <div className="relative z-10 w-full max-w-3xl mx-auto px-4 py-4 flex flex-col items-center justify-center my-auto">
           {/* Status Header */}
           <div className="text-center mb-6">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold tracking-wide uppercase mb-3 shadow-inner">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-none bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold tracking-wide uppercase mb-3 shadow-inner">
               <Radio className="w-3.5 h-3.5 animate-pulse" />
               {room?.status === 'STARTING' ? 'Match Imminent • 1v1 Battle' : '1v1 Waiting Room'}
             </div>
@@ -1042,14 +1042,14 @@ export default function CheckersArenaPage() {
 
           {/* 30-Second Countdown Banner when Player 2 Joins */}
           {room?.status === 'STARTING' && (
-            <div className="w-full bg-gradient-to-r from-amber-500/15 via-red-500/15 to-indigo-500/15 border-2 border-amber-500/40 rounded-3xl p-6 mb-8 text-center shadow-2xl backdrop-blur-xl relative overflow-hidden animate-scale-up">
+            <div className="w-full bg-gradient-to-r from-amber-500/15 via-red-500/15 to-indigo-500/15 border-2 border-amber-500/40 rounded-none p-6 mb-8 text-center shadow-2xl backdrop-blur-xl relative overflow-hidden animate-scale-up">
               <div className="inline-flex items-center gap-2 text-amber-400 text-xs font-extrabold uppercase tracking-widest mb-1">
                 <Clock className="w-4 h-4 animate-spin" />
                 Match Commencing In
               </div>
 
               <div className="flex items-center justify-center my-2">
-                <div className="w-24 h-24 rounded-full border-4 border-amber-400/30 flex items-center justify-center bg-slate-950/80 shadow-2xl ring-4 ring-amber-400/20">
+                <div className="w-24 h-24 rounded-none border-4 border-amber-400/30 flex items-center justify-center bg-slate-950/80 shadow-2xl ring-4 ring-amber-400/20">
                   <span className="font-mono text-5xl font-extrabold bg-gradient-to-b from-amber-300 to-amber-500 bg-clip-text text-transparent">
                     {countdownRemaining ?? 30}
                   </span>
@@ -1067,7 +1067,7 @@ export default function CheckersArenaPage() {
                 <div className="mt-4 flex justify-center">
                   <button
                     onClick={handleStartMatch}
-                    className="py-3.5 px-8 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-sm flex items-center gap-2 shadow-xl shadow-emerald-600/30 hover:scale-105 active:scale-95 transition"
+                    className="py-3.5 px-8 rounded-none bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-sm flex items-center gap-2 shadow-xl shadow-emerald-600/30 hover:scale-105 active:scale-95 transition"
                   >
                     <Play className="w-4 h-4 fill-current" />
                     Start Match Now (Skip Countdown)
@@ -1080,28 +1080,28 @@ export default function CheckersArenaPage() {
           {/* 1v1 Challenger Matchup Slots */}
           <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
             {/* Slot 1: Host (Red) */}
-            <div className="p-5 rounded-2xl bg-slate-900/80 border-2 border-red-500/30 shadow-xl flex items-center justify-between">
+            <div className="p-5 rounded-none bg-slate-900/80 border-2 border-red-500/30 shadow-xl flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="relative w-12 h-12 rounded-2xl bg-red-950/80 border-2 border-red-400 flex items-center justify-center shadow-lg">
+                <div className="relative w-12 h-12 rounded-none bg-red-950/80 border-2 border-red-400 flex items-center justify-center shadow-lg">
                   <div className="w-6 h-6 rounded-full bg-gradient-to-br from-red-500 to-red-700 border border-red-300 shadow-inner" />
                   <Crown className="w-3.5 h-3.5 text-amber-400 absolute -top-1.5 -right-1.5" />
                 </div>
                 <div>
                   <h3 className="font-bold text-white text-sm sm:text-base flex items-center gap-1.5">
                     {room?.hostName || 'Host'}
-                    {myRole === 'host' && <span className="text-[10px] bg-red-500/20 text-red-300 px-2 py-0.5 rounded-full font-bold">YOU</span>}
+                    {myRole === 'host' && <span className="text-[10px] bg-red-500/20 text-red-300 px-2 py-0.5 rounded-none font-bold">YOU</span>}
                   </h3>
                   <p className="text-xs text-red-300 font-medium">Red Pieces • Moves First</p>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-none bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold">
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 Ready
               </div>
             </div>
 
             {/* Slot 2: Challenger (Black) */}
-            <div className={`p-5 rounded-2xl border-2 transition-all flex items-center justify-between ${
+            <div className={`p-5 rounded-none border-2 transition-all flex items-center justify-between ${
               room?.guestId 
                 ? 'bg-slate-900/80 border-slate-700 shadow-xl' 
                 : 'bg-slate-950/40 border-dashed border-slate-800'
@@ -1109,18 +1109,18 @@ export default function CheckersArenaPage() {
               {room?.guestId ? (
                 <>
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-800 border-2 border-slate-400 flex items-center justify-center shadow-lg">
+                    <div className="w-12 h-12 rounded-none bg-slate-800 border-2 border-slate-400 flex items-center justify-center shadow-lg">
                       <div className="w-6 h-6 rounded-full bg-gradient-to-br from-slate-700 to-slate-900 border border-slate-400 shadow-inner" />
                     </div>
                     <div>
                       <h3 className="font-bold text-white text-sm sm:text-base flex items-center gap-1.5">
                         {room.guestName || 'Challenger'}
-                        {myRole === 'guest' && <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-bold">YOU</span>}
+                        {myRole === 'guest' && <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-none font-bold">YOU</span>}
                       </h3>
                       <p className="text-xs text-slate-400 font-medium">Black Pieces • Moves Second</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-none bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold">
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     Connected
                   </div>
@@ -1128,7 +1128,7 @@ export default function CheckersArenaPage() {
               ) : (
                 <div className="flex items-center gap-3 w-full justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-900/50 border border-slate-800 flex items-center justify-center text-slate-600">
+                    <div className="w-12 h-12 rounded-none bg-slate-900/50 border border-slate-800 flex items-center justify-center text-slate-600">
                       <Hourglass className="w-5 h-5 animate-pulse" />
                     </div>
                     <div>
@@ -1143,7 +1143,7 @@ export default function CheckersArenaPage() {
           </div>
 
           {/* Room Sharing Details Box */}
-          <div className="w-full bg-slate-900/60 backdrop-blur-md rounded-2xl border border-slate-800 p-5 shadow-xl space-y-4">
+          <div className="w-full bg-slate-900/60 backdrop-blur-md rounded-none border border-slate-800 p-5 shadow-xl space-y-4">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <div>
                 <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
@@ -1155,7 +1155,7 @@ export default function CheckersArenaPage() {
                   </span>
                   <button
                     onClick={copyRoomPin}
-                    className="py-1.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700 flex items-center gap-1.5 transition"
+                    className="py-1.5 px-3 rounded-none bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700 flex items-center gap-1.5 transition"
                   >
                     {copiedPin ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                     <span>{copiedPin ? 'Copied PIN' : 'Copy PIN'}</span>
@@ -1166,18 +1166,17 @@ export default function CheckersArenaPage() {
               <div className="flex gap-2 w-full sm:w-auto">
                 <button
                   onClick={copyRoomLink}
-                  className="flex-1 sm:flex-initial py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 transition"
+                  className="flex-1 sm:flex-initial py-2.5 px-4 rounded-none bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 transition"
                 >
                   {copiedLink ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
                   <span>{copiedLink ? 'Link Copied!' : 'Copy Direct Link'}</span>
                 </button>
                 <button
                   onClick={() => setShowQrModal(true)}
-                  className="py-2.5 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5 border border-slate-700 transition"
-                  title="View QR Code"
+                  className="p-2.5 rounded-none bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center justify-center transition"
+                  title="Show QR Code"
                 >
                   <QrCode className="w-4 h-4" />
-                  <span>QR</span>
                 </button>
               </div>
             </div>
@@ -1196,13 +1195,13 @@ export default function CheckersArenaPage() {
         <div className="relative z-10 w-full max-w-lg mx-auto px-3 py-1 sm:py-2 flex flex-col items-center justify-center gap-2 flex-1 my-auto">
           
           {/* 1. Opponent Bar (Top HUD) */}
-          <div className={`w-full bg-slate-900/90 border rounded-2xl px-3.5 py-2 flex items-center justify-between shadow-xl backdrop-blur-md transition-all ${
+          <div className={`w-full bg-slate-900/90 border-2 rounded-none px-3.5 py-2 flex items-center justify-between shadow-xl backdrop-blur-md transition-all ${
             currentTurn === opponentColor 
               ? 'border-amber-500/50 shadow-amber-500/10 ring-1 ring-amber-500/30' 
               : 'border-slate-800/90'
           }`}>
             <div className="flex items-center gap-2.5">
-              <div className={`relative w-10 h-10 rounded-xl flex items-center justify-center border-2 transition-all ${
+              <div className={`relative w-10 h-10 rounded-none flex items-center justify-center border-2 transition-all ${
                 currentTurn === opponentColor 
                   ? 'bg-amber-950/70 border-amber-400 shadow-md shadow-amber-400/20' 
                   : 'bg-slate-950 border-slate-700'
@@ -1230,7 +1229,7 @@ export default function CheckersArenaPage() {
                       myRole === 'host' ? (room?.guestName || 'Challenger') : (room?.hostName || 'Host')
                     )}
                   </h3>
-                  <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider ${
+                  <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-none uppercase tracking-wider ${
                     opponentColor === 'red' ? 'bg-red-500/20 text-red-300' : 'bg-slate-800 text-slate-300'
                   }`}>
                     {opponentColor}
@@ -1247,7 +1246,7 @@ export default function CheckersArenaPage() {
             {/* Opponent Status & Clock */}
             <div>
               {currentTurn === opponentColor ? (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-extrabold animate-pulse shadow-sm">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-none bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-extrabold animate-pulse shadow-sm">
                   <Clock className="w-3.5 h-3.5 animate-spin text-amber-400" />
                   <span>{isAiThinking ? 'AI Thinking' : 'Thinking'}</span>
                   {turnTimeLimit > 0 && (
@@ -1267,7 +1266,7 @@ export default function CheckersArenaPage() {
           {/* 2. Contextual Notification / Hint Toast Bar */}
           <div className="w-full min-h-[30px] flex items-center justify-center">
             {hintToast ? (
-              <div className={`px-3.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-lg animate-bounce ${
+              <div className={`px-3.5 py-1 rounded-none text-xs font-bold flex items-center gap-1.5 shadow-lg animate-bounce ${
                 hintToast.type === 'warning' 
                   ? 'bg-amber-500/25 border border-amber-500/40 text-amber-200 shadow-amber-500/10' 
                   : 'bg-indigo-500/25 border border-indigo-500/40 text-indigo-200 shadow-indigo-500/10'
@@ -1276,17 +1275,17 @@ export default function CheckersArenaPage() {
                 <span>{hintToast.message}</span>
               </div>
             ) : hasMandatoryCapture && currentTurn === myPlayerColor ? (
-              <div className="px-3.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-extrabold flex items-center gap-1.5 shadow-md shadow-amber-500/10 animate-pulse">
+              <div className="px-3.5 py-1 rounded-none bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-extrabold flex items-center gap-1.5 shadow-md shadow-amber-500/10 animate-pulse">
                 <Zap className="w-3.5 h-3.5 text-amber-400" />
                 <span>Mandatory Capture! Jump with the highlighted piece</span>
               </div>
             ) : mustJumpChainPos && currentTurn === myPlayerColor ? (
-              <div className="px-3.5 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-xs font-extrabold flex items-center gap-1.5 shadow-md shadow-indigo-500/10 animate-bounce">
+              <div className="px-3.5 py-1 rounded-none bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-xs font-extrabold flex items-center gap-1.5 shadow-md shadow-indigo-500/10 animate-bounce">
                 <Flame className="w-3.5 h-3.5 text-indigo-400" />
                 <span>Combo Jump! Continue jumping with active piece</span>
               </div>
             ) : lastMove ? (
-              <div className="px-3 py-0.5 rounded-full bg-slate-900/80 border border-slate-800 text-[11px] text-slate-400 flex items-center gap-1.5 font-medium">
+              <div className="px-3 py-0.5 rounded-none bg-slate-900/80 border border-slate-800 text-[11px] text-slate-400 flex items-center gap-1.5 font-medium">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
                 <span className="text-slate-500">Last:</span>
                 <span className="font-mono font-bold text-amber-300">
@@ -1297,7 +1296,7 @@ export default function CheckersArenaPage() {
                   {String.fromCharCode(65 + lastMove.to.col)}{8 - lastMove.to.row}
                 </span>
                 {lastMove.captures && lastMove.captures.length > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-none bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">
                     +{lastMove.captures.length} captured
                   </span>
                 )}
@@ -1310,37 +1309,31 @@ export default function CheckersArenaPage() {
             )}
           </div>
 
-          {/* 3. Center: Interactive 8x8 Board Canvas with Refined Tournament Borders */}
+          {/* 3. Center: Interactive 8x8 Board Canvas with Straight-Edge Tournament Borders */}
           <div className="relative group">
             {/* Ambient Reactive Turn Glow */}
-            <div className={`absolute -inset-1.5 rounded-[28px] sm:rounded-[36px] opacity-35 blur-xl transition-all duration-500 pointer-events-none ${
+            <div className={`absolute -inset-1.5 rounded-none opacity-30 blur-xl transition-all duration-500 pointer-events-none ${
               currentTurn === myPlayerColor ? 'bg-emerald-500/30' : 'bg-amber-500/30'
             }`} />
 
-            {/* The Main Beveled Board Frame */}
-            <div className={`relative p-2 sm:p-3 rounded-[22px] sm:rounded-[28px] border-2 transition-all duration-300 shadow-2xl ${
+            {/* The Main Straight-Edge Beveled Board Frame */}
+            <div className={`relative p-2.5 sm:p-3.5 rounded-none border-4 transition-all duration-300 shadow-2xl ${
               boardTheme === 'crimson' 
-                ? 'bg-gradient-to-b from-neutral-900 via-neutral-950 to-neutral-900 border-rose-900/60 shadow-black ring-1 ring-rose-950/80' 
+                ? 'bg-neutral-950 border-rose-900 shadow-black ring-1 ring-rose-950' 
                 : boardTheme === 'wood' 
-                ? 'bg-gradient-to-b from-amber-950 via-[#2d1508] to-amber-950 border-amber-800/60 shadow-black ring-1 ring-amber-950/80' 
-                : 'bg-gradient-to-b from-slate-900 via-neutral-950 to-black border-slate-700/60 shadow-black/90 ring-1 ring-white/10'
+                ? 'bg-[#2d1508] border-amber-900 shadow-black ring-1 ring-amber-950' 
+                : 'bg-black border-neutral-900 shadow-black/90 ring-1 ring-white/15'
             }`}>
-              {/* Corner Accent Pips */}
-              <span className="absolute top-2 left-2 w-1.5 h-1.5 rounded-full bg-slate-500/40 ring-1 ring-white/10 pointer-events-none" />
-              <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-slate-500/40 ring-1 ring-white/10 pointer-events-none" />
-              <span className="absolute bottom-2 left-2 w-1.5 h-1.5 rounded-full bg-slate-500/40 ring-1 ring-white/10 pointer-events-none" />
-              <span className="absolute bottom-2 right-2 w-1.5 h-1.5 rounded-full bg-slate-500/40 ring-1 ring-white/10 pointer-events-none" />
-
-              {/* Inner Inset Bezel (Recessed Tournament Track) */}
-              <div className={`p-0.5 sm:p-1 rounded-xl sm:rounded-2xl border shadow-inner ${
+              {/* Inner Inset Bezel (Recessed Track with Straight Edges) */}
+              <div className={`p-1 rounded-none border-2 shadow-inner ${
                 boardTheme === 'crimson'
-                  ? 'bg-neutral-950 border-rose-950/80'
+                  ? 'bg-neutral-950 border-rose-950'
                   : boardTheme === 'wood'
-                  ? 'bg-[#200e05] border-amber-950/80'
-                  : 'bg-black border-neutral-900'
+                  ? 'bg-[#1a0c05] border-amber-950'
+                  : 'bg-black border-neutral-800'
               }`}>
-                {/* Seamless 8x8 Checkerboard Grid matching uploaded image */}
-                <div className="grid grid-cols-8 grid-rows-8 gap-0 w-[min(90vw,calc(100vh-320px),460px)] h-[min(90vw,calc(100vh-320px),460px)] border border-neutral-800/90 overflow-hidden rounded-lg sm:rounded-xl shadow-inner">
+                {/* Seamless 8x8 Checkerboard Grid with Sharp Straight Edges */}
+                <div className="grid grid-cols-8 grid-rows-8 gap-0 w-[min(90vw,calc(100vh-320px),460px)] h-[min(90vw,calc(100vh-320px),460px)] border-2 border-black rounded-none overflow-hidden shadow-inner">
               {displayRows.map((r, rowIdx) =>
                 displayCols.map((c, colIdx) => {
                   const piece = board[r][c];
@@ -1462,13 +1455,13 @@ export default function CheckersArenaPage() {
       </div>
 
           {/* 4. Player Bar (Your HUD, directly below board) */}
-          <div className={`w-full bg-slate-900/90 border rounded-2xl px-3.5 py-2 flex items-center justify-between shadow-xl backdrop-blur-md transition-all ${
+          <div className={`w-full bg-slate-900/90 border-2 rounded-none px-3.5 py-2 flex items-center justify-between shadow-xl backdrop-blur-md transition-all ${
             currentTurn === myPlayerColor 
               ? 'border-emerald-500/50 shadow-emerald-500/10 ring-1 ring-emerald-500/30' 
               : 'border-slate-800/90'
           }`}>
             <div className="flex items-center gap-2.5">
-              <div className={`relative w-10 h-10 rounded-xl flex items-center justify-center border-2 transition-all ${
+              <div className={`relative w-10 h-10 rounded-none flex items-center justify-center border-2 transition-all ${
                 currentTurn === myPlayerColor 
                   ? 'bg-emerald-950/70 border-emerald-400 shadow-md shadow-emerald-400/20' 
                   : 'bg-slate-950 border-slate-700'
@@ -1491,7 +1484,7 @@ export default function CheckersArenaPage() {
                   <h3 className="text-xs sm:text-sm font-extrabold text-white truncate max-w-[130px] sm:max-w-[180px]">
                     {myRole === 'host' ? `${room?.hostName || myPlayerName}` : `${room?.guestName || myPlayerName}`}
                   </h3>
-                  <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider ${
+                  <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-none uppercase tracking-wider ${
                     myPlayerColor === 'red' ? 'bg-red-500/20 text-red-300' : 'bg-slate-800 text-slate-300'
                   }`}>
                     YOU ({myPlayerColor})
@@ -1508,7 +1501,7 @@ export default function CheckersArenaPage() {
             {/* Your Status & Clock */}
             <div>
               {currentTurn === myPlayerColor ? (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-extrabold shadow-sm shadow-emerald-500/10">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-none bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-extrabold shadow-sm shadow-emerald-500/10">
                   <Sparkles className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
                   <span>YOUR TURN</span>
                   {turnTimeLimit > 0 && (
@@ -1531,7 +1524,7 @@ export default function CheckersArenaPage() {
               <button
                 key={emoji}
                 onClick={() => triggerEmoji(emoji, true)}
-                className="w-9 h-9 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 hover:scale-110 active:scale-95 transition text-base flex items-center justify-center shadow-sm"
+                className="w-9 h-9 rounded-none bg-slate-900/80 border border-slate-800 hover:border-slate-700 hover:scale-110 active:scale-95 transition text-base flex items-center justify-center shadow-sm"
                 title={`Send ${emoji}`}
               >
                 {emoji}
@@ -1549,7 +1542,7 @@ export default function CheckersArenaPage() {
             <span className="text-[11px] text-slate-600 italic">No moves played yet</span>
           ) : (
             moveHistory.slice(0, 5).map((not, idx) => (
-              <span key={idx} className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 font-mono text-[11px] text-slate-300">
+              <span key={idx} className="px-2 py-0.5 rounded-none bg-slate-900 border border-slate-800 font-mono text-[11px] text-slate-300">
                 {not}
               </span>
             ))
@@ -1573,8 +1566,8 @@ export default function CheckersArenaPage() {
       {/* Trivia Clash Modal */}
       {activeTrivia && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-slate-900 border border-amber-500/50 rounded-3xl p-6 shadow-2xl shadow-amber-500/10 animate-scale-up text-center">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold tracking-wide uppercase mb-3">
+          <div className="w-full max-w-md bg-slate-900 border-2 border-amber-500/50 rounded-none p-6 shadow-2xl shadow-amber-500/10 animate-scale-up text-center">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-none bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold tracking-wide uppercase mb-3">
               <Flame className="w-4 h-4 animate-bounce" />
               Trivia Capture Challenge ({triviaTimer}s)
             </div>
@@ -1588,9 +1581,9 @@ export default function CheckersArenaPage() {
                 <button
                   key={idx}
                   onClick={() => handleAnswerTrivia(idx)}
-                  className="p-3 rounded-xl bg-slate-800/80 hover:bg-amber-500/20 hover:border-amber-500 border border-slate-700 text-sm font-semibold text-slate-200 transition text-left flex items-center gap-2"
+                  className="p-3 rounded-none bg-slate-800/80 hover:bg-amber-500/20 hover:border-amber-500 border border-slate-700 text-sm font-semibold text-slate-200 transition text-left flex items-center gap-2"
                 >
-                  <span className="w-5 h-5 rounded-md bg-slate-700 text-slate-300 text-xs flex items-center justify-center font-mono">
+                  <span className="w-5 h-5 rounded-none bg-slate-700 text-slate-300 text-xs flex items-center justify-center font-mono">
                     {String.fromCharCode(65 + idx)}
                   </span>
                   <span>{opt}</span>
@@ -1604,9 +1597,9 @@ export default function CheckersArenaPage() {
       {/* Game Over Victory Modal */}
       {winner && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-scale-up">
-            <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
-              forfeitInfo ? 'bg-rose-500/10 border border-rose-500/30' : 'bg-amber-500/10 border border-amber-500/30'
+          <div className="w-full max-w-sm bg-slate-900 border-2 border-slate-700 rounded-none p-6 sm:p-8 text-center shadow-2xl animate-scale-up">
+            <div className={`w-16 h-16 rounded-none flex items-center justify-center mx-auto mb-4 border-2 ${
+              forfeitInfo ? 'bg-rose-500/10 border-rose-500/40' : 'bg-amber-500/10 border-amber-500/40'
             }`}>
               {forfeitInfo ? (
                 <Flag className="w-8 h-8 text-rose-400" />
@@ -1616,7 +1609,7 @@ export default function CheckersArenaPage() {
             </div>
 
             {forfeitInfo && (
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-bold uppercase tracking-wider mb-3">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-none bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-bold uppercase tracking-wider mb-3">
                 <Flag className="w-3.5 h-3.5" />
                 {winner === myPlayerColor ? 'Opponent Forfeited' : 'Match Forfeited'}
               </div>
@@ -1644,14 +1637,14 @@ export default function CheckersArenaPage() {
                   setForfeitInfo(null);
                   resetGame(true);
                 }}
-                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-red-600/30 transition"
+                className="w-full py-3.5 rounded-none bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-red-600/30 transition"
               >
                 <RotateCcw className="w-4 h-4" />
                 Play Again / Rematch
               </button>
               <Link
                 href="/checkers"
-                className="w-full py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm block transition"
+                className="w-full py-3 rounded-none bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm block transition"
               >
                 Back to Lobby
               </Link>
@@ -1663,8 +1656,8 @@ export default function CheckersArenaPage() {
       {/* Forfeit Confirmation Modal */}
       {showForfeitModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-slate-900 border border-rose-500/40 rounded-3xl p-6 sm:p-7 text-center shadow-2xl animate-scale-up">
-            <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mx-auto mb-4 text-rose-400">
+          <div className="w-full max-w-sm bg-slate-900 border-2 border-rose-500/40 rounded-none p-6 sm:p-7 text-center shadow-2xl animate-scale-up">
+            <div className="w-14 h-14 rounded-none bg-rose-500/10 border-2 border-rose-500/30 flex items-center justify-center mx-auto mb-4 text-rose-400">
               <Flag className="w-7 h-7" />
             </div>
 
@@ -1676,13 +1669,13 @@ export default function CheckersArenaPage() {
             <div className="space-y-2.5">
               <button
                 onClick={handleConfirmForfeit}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-bold text-sm shadow-lg shadow-rose-600/30 transition"
+                className="w-full py-3 rounded-none bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-bold text-sm shadow-lg shadow-rose-600/30 transition"
               >
                 Yes, Forfeit Match
               </button>
               <button
                 onClick={() => setShowForfeitModal(false)}
-                className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm transition"
+                className="w-full py-3 rounded-none bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm transition"
               >
                 Cancel & Keep Playing
               </button>
@@ -1694,10 +1687,10 @@ export default function CheckersArenaPage() {
       {/* QR Code Share Modal */}
       {showQrModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-3xl p-6 text-center shadow-2xl relative">
+          <div className="w-full max-w-sm bg-slate-900 border-2 border-slate-700 rounded-none p-6 text-center shadow-2xl relative">
             <button
               onClick={() => setShowQrModal(false)}
-              className="absolute top-4 right-4 p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white"
+              className="absolute top-4 right-4 p-2 rounded-none bg-slate-800 text-slate-400 hover:text-white"
             >
               <X className="w-4 h-4" />
             </button>
@@ -1705,7 +1698,7 @@ export default function CheckersArenaPage() {
             <h3 className="text-lg font-bold text-white mb-1">Scan to Join Match</h3>
             <p className="text-xs text-slate-400 mb-5">Point camera at QR code to join room #{roomCode}</p>
 
-            <div className="p-4 bg-white rounded-2xl inline-block shadow-inner mb-4">
+            <div className="p-4 bg-white rounded-none inline-block shadow-inner mb-4">
               <QRCodeSVG
                 value={typeof window !== 'undefined' ? `${window.location.origin}/checkers/${roomCode}?mode=multiplayer&role=guest` : roomCode}
                 size={200}
@@ -1717,7 +1710,7 @@ export default function CheckersArenaPage() {
 
             <button
               onClick={copyRoomLink}
-              className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition"
+              className="w-full py-3 rounded-none bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition"
             >
               {copiedLink ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
               {copiedLink ? 'Link Copied!' : 'Copy Invite Link'}
@@ -1729,15 +1722,15 @@ export default function CheckersArenaPage() {
       {/* Quick Rules & Moves Guide Modal */}
       {showRulesModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-3xl p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+          <div className="w-full max-w-md bg-slate-900 border-2 border-slate-700 rounded-none p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setShowRulesModal(false)}
-              className="absolute top-4 right-4 p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white"
+              className="absolute top-4 right-4 p-2 rounded-none bg-slate-800 text-slate-400 hover:text-white"
             >
               <X className="w-4 h-4" />
             </button>
 
-            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center mb-3 text-indigo-400">
+            <div className="w-12 h-12 rounded-none bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center mb-3 text-indigo-400">
               <HelpCircle className="w-6 h-6" />
             </div>
 
@@ -1745,7 +1738,7 @@ export default function CheckersArenaPage() {
             <p className="text-xs text-slate-400 mb-5">Rules of the Cameroon & African Draughts Arena</p>
 
             <div className="space-y-3.5 text-left text-xs sm:text-sm">
-              <div className="p-3 rounded-2xl bg-slate-800/60 border border-slate-700/60">
+              <div className="p-3 rounded-none bg-slate-800/60 border border-slate-700/60">
                 <div className="flex items-center gap-2 font-bold text-amber-300 mb-1">
                   <Zap className="w-4 h-4 text-amber-400" />
                   <span>Mandatory Jumps</span>
@@ -1755,7 +1748,7 @@ export default function CheckersArenaPage() {
                 </p>
               </div>
 
-              <div className="p-3 rounded-2xl bg-slate-800/60 border border-slate-700/60">
+              <div className="p-3 rounded-none bg-slate-800/60 border border-slate-700/60">
                 <div className="flex items-center gap-2 font-bold text-emerald-300 mb-1">
                   <Crown className="w-4 h-4 text-amber-300" />
                   <span>Flying Kings (Dames)</span>
@@ -1765,7 +1758,7 @@ export default function CheckersArenaPage() {
                 </p>
               </div>
 
-              <div className="p-3 rounded-2xl bg-slate-800/60 border border-slate-700/60">
+              <div className="p-3 rounded-none bg-slate-800/60 border border-slate-700/60">
                 <div className="flex items-center gap-2 font-bold text-indigo-300 mb-1">
                   <Flame className="w-4 h-4 text-indigo-400" />
                   <span>Combo Multi-Jumps</span>
@@ -1775,7 +1768,7 @@ export default function CheckersArenaPage() {
                 </p>
               </div>
 
-              <div className="p-3 rounded-2xl bg-slate-800/60 border border-slate-700/60">
+              <div className="p-3 rounded-none bg-slate-800/60 border border-slate-700/60">
                 <div className="flex items-center gap-2 font-bold text-rose-300 mb-1">
                   <Clock className="w-4 h-4 text-rose-400" />
                   <span>30-Second Turn Clock</span>
@@ -1788,7 +1781,7 @@ export default function CheckersArenaPage() {
 
             <button
               onClick={() => setShowRulesModal(false)}
-              className="mt-6 w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition shadow-lg shadow-indigo-600/30"
+              className="mt-6 w-full py-3 rounded-none bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition shadow-lg shadow-indigo-600/30"
             >
               Got It • Back to Game
             </button>
