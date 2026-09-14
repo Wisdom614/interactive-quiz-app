@@ -20,6 +20,9 @@ import {
 } from 'lucide-react';
 import { AIDifficulty, PlayerColor } from '@/lib/games/checkersEngine';
 import { sound } from '@/lib/audio/soundEngine';
+import { createCheckersRoom, getCheckersRoomManager } from '@/lib/games/checkersRoomStore';
+import { AuthService } from '@/lib/auth/authStore';
+import { AlertCircle, Loader2 } from 'lucide-react';
 
 export default function CheckersLobbyPage() {
   const router = useRouter();
@@ -35,6 +38,19 @@ export default function CheckersLobbyPage() {
   const [joinPin, setJoinPin] = useState('');
   const [isTriviaClash, setIsTriviaClash] = useState(false);
   const [turnTimerSec, setTurnTimerSec] = useState<number>(30); // 15, 30, 60, 0 (unlimited)
+  const [playerName, setPlayerName] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('checkers_player_name');
+      if (saved) return saved;
+      const user = AuthService.getCurrentUser();
+      if (user?.name) return user.name;
+    }
+    return 'Player ' + Math.floor(Math.random() * 900 + 100);
+  });
+
+  const [isCreating, setIsCreating] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
 
   const [isMuted, setIsMuted] = useState(false);
 
@@ -55,34 +71,97 @@ export default function CheckersLobbyPage() {
     router.push(`/checkers/arena?${query.toString()}`);
   };
 
-  const handleCreateMultiplayer = () => {
+  const handleCreateMultiplayer = async () => {
     sound.playSelect();
-    // Generate a random 6-character room code
-    const code = 'CHK-' + Math.random().toString(36).substring(2, 6).toUpperCase();
-    const query = new URLSearchParams({
-      mode: 'multiplayer',
-      role: 'host',
-      color: playerColor,
-      trivia: isTriviaClash ? '1' : '0',
-      timer: turnTimerSec.toString(),
-    });
-    router.push(`/checkers/${code}?${query.toString()}`);
+    setIsCreating(true);
+    setJoinError(null);
+
+    const cleanName = playerName.trim() || 'Host';
+    const hostId = (typeof window !== 'undefined' && localStorage.getItem('checkers_player_id')) || 
+      `chk_${Math.random().toString(36).substring(2, 9)}`;
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('checkers_player_id', hostId);
+      localStorage.setItem('checkers_player_name', cleanName);
+    }
+
+    try {
+      const room = await createCheckersRoom({
+        hostId,
+        hostName: cleanName,
+        hostAvatar: 'crown',
+        turnTimerSec,
+        isTriviaClash,
+      });
+
+      const query = new URLSearchParams({
+        mode: 'multiplayer',
+        role: 'host',
+        trivia: isTriviaClash ? '1' : '0',
+        timer: turnTimerSec.toString(),
+      });
+      router.push(`/checkers/${room.roomCode}?${query.toString()}`);
+    } catch (err) {
+      console.error('Failed to create checkers room:', err);
+      setJoinError('Could not initialize room. Please try again.');
+      setIsCreating(false);
+    }
   };
 
-  const handleJoinMultiplayer = (e: React.FormEvent) => {
+  const handleJoinMultiplayer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!joinPin.trim()) return;
-    sound.playSelect();
+    if (!joinPin.trim() || isJoining) return;
+    
     let cleanCode = joinPin.trim().toUpperCase();
     if (!cleanCode.startsWith('CHK-') && cleanCode.length === 4) {
       cleanCode = 'CHK-' + cleanCode;
     }
-    const query = new URLSearchParams({
-      mode: 'multiplayer',
-      role: 'guest',
-    });
-    router.push(`/checkers/${cleanCode}?${query.toString()}`);
+
+    setIsJoining(true);
+    setJoinError(null);
+
+    const cleanName = playerName.trim() || 'Player';
+    const myId = (typeof window !== 'undefined' && localStorage.getItem('checkers_player_id')) || 
+      `chk_${Math.random().toString(36).substring(2, 9)}`;
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('checkers_player_id', myId);
+      localStorage.setItem('checkers_player_name', cleanName);
+    }
+
+    try {
+      const manager = getCheckersRoomManager(cleanCode);
+      const room = await manager.fetchRoomAsync();
+
+      if (!room) {
+        setIsJoining(false);
+        setJoinError(`Room "${cleanCode}" was not found. Please verify the PIN code with your host.`);
+        sound.playWrong();
+        return;
+      }
+
+      // Check capacity for 1v1 game
+      if (room.guestId && room.guestId !== myId && room.hostId !== myId) {
+        setIsJoining(false);
+        setJoinError(`Room "${cleanCode}" is already full! Checkers is a 1v1 battle match.`);
+        sound.playWrong();
+        return;
+      }
+
+      sound.playSelect();
+      const role = room.hostId === myId ? 'host' : 'guest';
+      const query = new URLSearchParams({
+        mode: 'multiplayer',
+        role,
+      });
+      router.push(`/checkers/${cleanCode}?${query.toString()}`);
+    } catch (err) {
+      console.error('Join error:', err);
+      setIsJoining(false);
+      setJoinError('Failed to join room. Please check your connection.');
+    }
   };
+
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between relative overflow-hidden font-sans">
@@ -262,6 +341,29 @@ export default function CheckersLobbyPage() {
           ) : (
             /* MULTIPLAYER CONFIGURATION */
             <div className="space-y-6">
+              {/* Player Nickname */}
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                  Your In-Game Nickname
+                </label>
+                <input
+                  type="text"
+                  value={playerName}
+                  onChange={(e) => setPlayerName(e.target.value)}
+                  placeholder="e.g. Master Strategist"
+                  maxLength={20}
+                  className="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-4 py-3 text-white font-bold placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 transition"
+                />
+              </div>
+
+              {/* Error Message Banner */}
+              {joinError && (
+                <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2.5 animate-fadeIn">
+                  <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                  <span>{joinError}</span>
+                </div>
+              )}
+
               {/* Host New Room */}
               <div className="p-5 rounded-2xl bg-slate-950/50 border border-slate-800 space-y-4">
                 <div className="flex items-center justify-between">
@@ -319,10 +421,20 @@ export default function CheckersLobbyPage() {
 
                 <button
                   onClick={handleCreateMultiplayer}
-                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/25 transition"
+                  disabled={isCreating}
+                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-blue-600 hover:from-indigo-500 hover:to-blue-500 disabled:opacity-50 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/25 transition"
                 >
-                  <Crown className="w-4 h-4" />
-                  Create Room & Get Code
+                  {isCreating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Creating Arena...
+                    </>
+                  ) : (
+                    <>
+                      <Crown className="w-4 h-4" />
+                      Create Room & Get Code
+                    </>
+                  )}
                 </button>
               </div>
 
@@ -348,10 +460,14 @@ export default function CheckersLobbyPage() {
                   />
                   <button
                     type="submit"
-                    disabled={!joinPin.trim()}
+                    disabled={!joinPin.trim() || isJoining}
                     className="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white font-bold text-sm transition flex items-center gap-2 border border-slate-700"
                   >
-                    Join
+                    {isJoining ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      'Join'
+                    )}
                   </button>
                 </div>
               </form>

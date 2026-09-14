@@ -76,3 +76,43 @@ create policy "Public and authenticated users can insert/update rooms"
 -- 6. Realtime Publication
 -- Enable Supabase Realtime broadcast and table change feeds
 alter publication supabase_realtime add table public.quiz_rooms;
+
+-- ==============================================================================
+-- 7. Checkers 1v1 Arena Rooms Table
+-- ==============================================================================
+create table if not exists public.checkers_rooms (
+  id text primary key,
+  room_code varchar(12) not null unique,
+  host_id text not null,
+  host_name text default 'Host',
+  host_avatar text default 'crown',
+  guest_id text,
+  guest_name text,
+  guest_avatar text default 'zap',
+  status text not null default 'LOBBY', -- 'LOBBY', 'STARTING', 'PLAYING', 'GAME_OVER'
+  countdown_started_at bigint,
+  scheduled_start_at bigint,
+  turn_timer_sec integer default 30,
+  is_trivia_clash boolean default false,
+  board_state jsonb,
+  current_turn text default 'red',
+  winner text,
+  move_history jsonb default '[]'::jsonb,
+  settings jsonb default '{}'::jsonb,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists idx_checkers_rooms_code on public.checkers_rooms(room_code);
+create index if not exists idx_checkers_rooms_status on public.checkers_rooms(status);
+
+alter table public.checkers_rooms enable row level security;
+
+drop policy if exists "Allow all operations on checkers_rooms" on public.checkers_rooms;
+create policy "Allow all operations on checkers_rooms"
+  on public.checkers_rooms for all
+  using (true)
+  with check (true);
+
+alter publication supabase_realtime add table public.checkers_rooms;
+
