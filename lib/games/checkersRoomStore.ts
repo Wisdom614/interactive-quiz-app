@@ -3,6 +3,12 @@ import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase/client';
 
 export type CheckersRoomStatus = 'LOBBY' | 'STARTING' | 'PLAYING' | 'GAME_OVER';
 
+export interface CheckersMovePayload {
+  from: { row: number; col: number };
+  to: { row: number; col: number };
+  captures?: { row: number; col: number }[];
+}
+
 export interface CheckersRoom {
   id: string;
   roomCode: string;
@@ -21,6 +27,7 @@ export interface CheckersRoom {
   currentTurn: PlayerColor;
   winner: PlayerColor | 'draw' | null;
   moveHistory: string[];
+  lastMove?: CheckersMovePayload | null;
   settings?: Record<string, any>;
   createdAt?: string;
   updatedAt?: string;
@@ -32,6 +39,7 @@ export type CheckersBroadcastEvent =
       type: 'CHECKERS_MOVE'; 
       board: BoardState; 
       nextTurn: PlayerColor; 
+      lastMove?: CheckersMovePayload | null;
       mustJumpChainPos?: { row: number; col: number } | null;
       winner?: PlayerColor | 'draw' | null;
       redCaptured: number;
@@ -46,6 +54,7 @@ export type CheckersBroadcastEvent =
   | { type: 'CHECKERS_EMOJI'; emoji: string; sender: string };
 
 const CHECKERS_STORAGE_PREFIX = 'quizpulse_checkers_room_';
+
 
 export class CheckersRoomManager {
   private roomCode: string;
@@ -176,6 +185,7 @@ export class CheckersRoomManager {
       currentTurn: data.current_turn || 'red',
       winner: data.winner || null,
       moveHistory: data.move_history || [],
+      lastMove: data.settings?.lastMove || null,
       settings: data.settings || {},
       createdAt: data.created_at,
       updatedAt: data.updated_at,
@@ -202,31 +212,46 @@ export class CheckersRoomManager {
   }
 
   public async saveRoom(room: CheckersRoom): Promise<void> {
-    this.saveRoomLocally(room);
+    const local = this.getSavedRoom();
+    const guestId = room.guestId || local?.guestId || null;
+    const guestName = room.guestName || local?.guestName || null;
+    const guestAvatar = room.guestAvatar || local?.guestAvatar || 'zap';
+
+    const mergedRoom: CheckersRoom = {
+      ...room,
+      guestId,
+      guestName,
+      guestAvatar,
+    };
+
+    this.saveRoomLocally(mergedRoom);
 
     const supabase = getSupabaseClient();
     if (!supabase || !isSupabaseConfigured) return;
 
     try {
       await supabase.from('checkers_rooms').upsert({
-        id: room.id,
-        room_code: room.roomCode,
-        host_id: room.hostId,
-        host_name: room.hostName,
-        host_avatar: room.hostAvatar,
-        guest_id: room.guestId,
-        guest_name: room.guestName,
-        guest_avatar: room.guestAvatar,
-        status: room.status,
-        countdown_started_at: room.countdownStartedAt,
-        scheduled_start_at: room.scheduledStartAt,
-        turn_timer_sec: room.turnTimerSec,
-        is_trivia_clash: room.isTriviaClash,
-        board_state: room.boardState,
-        current_turn: room.currentTurn,
-        winner: room.winner,
-        move_history: room.moveHistory,
-        settings: room.settings || {},
+        id: mergedRoom.id,
+        room_code: mergedRoom.roomCode,
+        host_id: mergedRoom.hostId,
+        host_name: mergedRoom.hostName,
+        host_avatar: mergedRoom.hostAvatar,
+        guest_id: guestId,
+        guest_name: guestName,
+        guest_avatar: guestAvatar,
+        status: mergedRoom.status,
+        countdown_started_at: mergedRoom.countdownStartedAt,
+        scheduled_start_at: mergedRoom.scheduledStartAt,
+        turn_timer_sec: mergedRoom.turnTimerSec,
+        is_trivia_clash: mergedRoom.isTriviaClash,
+        board_state: mergedRoom.boardState,
+        current_turn: mergedRoom.currentTurn,
+        winner: mergedRoom.winner,
+        move_history: mergedRoom.moveHistory,
+        settings: {
+          ...(mergedRoom.settings || {}),
+          lastMove: mergedRoom.lastMove || null,
+        },
         updated_at: new Date().toISOString(),
       });
     } catch (err) {

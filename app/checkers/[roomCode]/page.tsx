@@ -51,7 +51,8 @@ import { sound } from '@/lib/audio/soundEngine';
 import { 
   CheckersRoom, 
   getCheckersRoomManager, 
-  CheckersBroadcastEvent 
+  CheckersBroadcastEvent,
+  CheckersMovePayload 
 } from '@/lib/games/checkersRoomStore';
 import { AuthService } from '@/lib/auth/authStore';
 
@@ -85,9 +86,11 @@ export default function CheckersArenaPage() {
   const [board, setBoard] = useState<BoardState>(createInitialCheckersBoard);
   const [currentTurn, setCurrentTurn] = useState<PlayerColor>('red');
   const [selectedPos, setSelectedPos] = useState<Position | null>(null);
+  const [lastMove, setLastMove] = useState<CheckersMovePayload | null>(null);
   const [validMoves, setValidMoves] = useState<Move[]>([]);
   const [mustJumpChainPos, setMustJumpChainPos] = useState<Position | null>(null);
   const [winner, setWinner] = useState<PlayerColor | 'draw' | null>(null);
+
 
   // Stats & Clocks
   const [redCaptured, setRedCaptured] = useState(0);
@@ -177,6 +180,7 @@ export default function CheckersArenaPage() {
       if (fetchedRoom.currentTurn) setCurrentTurn(fetchedRoom.currentTurn);
       if (fetchedRoom.winner) setWinner(fetchedRoom.winner);
       if (fetchedRoom.moveHistory) setMoveHistory(fetchedRoom.moveHistory);
+      if (fetchedRoom.lastMove) setLastMove(fetchedRoom.lastMove);
 
       // Determine Host vs Guest
       if (fetchedRoom.hostId === pId && roleFromUrl !== 'guest') {
@@ -207,6 +211,7 @@ export default function CheckersArenaPage() {
         if (event.room.currentTurn) setCurrentTurn(event.room.currentTurn);
         if (event.room.winner) setWinner(event.room.winner);
         if (event.room.moveHistory) setMoveHistory(event.room.moveHistory);
+        if (event.room.lastMove) setLastMove(event.room.lastMove);
       } else if (event.type === 'CHECKERS_GUEST_JOINED') {
         sound.playPop();
         setRoom(prev => prev ? {
@@ -223,6 +228,10 @@ export default function CheckersArenaPage() {
       } else if (event.type === 'CHECKERS_MOVE') {
         setBoard(event.board);
         setCurrentTurn(event.nextTurn);
+        setSelectedPos(null);
+        if (event.lastMove) {
+          setLastMove(event.lastMove);
+        }
         setMustJumpChainPos(event.mustJumpChainPos || null);
         setWinner(event.winner || null);
         setRedCaptured(event.redCaptured ?? 0);
@@ -245,6 +254,7 @@ export default function CheckersArenaPage() {
         setBoard(event.board);
         setCurrentTurn('red');
         setSelectedPos(null);
+        setLastMove(null);
         setMustJumpChainPos(null);
         setWinner(null);
         setRedCaptured(0);
@@ -285,12 +295,13 @@ export default function CheckersArenaPage() {
             if (dbRoom.currentTurn) setCurrentTurn(dbRoom.currentTurn);
             if (dbRoom.winner) setWinner(dbRoom.winner);
             if (dbRoom.moveHistory) setMoveHistory(dbRoom.moveHistory);
+            if (dbRoom.lastMove) setLastMove(dbRoom.lastMove);
             return dbRoom;
           }
           return prev;
         });
       }
-    }, 1500);
+    }, 1000);
 
     return () => clearInterval(pollInterval);
   }, [isSolo, roomCode]);
@@ -416,6 +427,12 @@ export default function CheckersArenaPage() {
     const isCapture = !!(move.captures && move.captures.length > 0);
     const notation = getMoveNotation(move);
 
+    const movePayload: CheckersMovePayload = {
+      from: { row: move.from.row, col: move.from.col },
+      to: { row: move.to.row, col: move.to.col },
+      captures: move.captures?.map(c => ({ row: c.row, col: c.col }))
+    };
+
     const {
       newBoard,
       nextTurn,
@@ -425,9 +442,11 @@ export default function CheckersArenaPage() {
       capturedCount
     } = executeMove(board, move, currentTurn);
 
+    // Instant local state update for zero lag
     setBoard(newBoard);
     setCurrentTurn(nextTurn);
     setSelectedPos(null);
+    setLastMove(movePayload);
     setMoveHistory(prev => [notation, ...prev]);
 
     const newRedCaptured = currentTurn === 'red' ? redCaptured + capturedCount : redCaptured;
@@ -458,7 +477,7 @@ export default function CheckersArenaPage() {
       setTurnTimeLeft(turnTimeLimit);
     }
 
-    // Broadcast to opponent in multiplayer & persist to database
+    // Broadcast to opponent in multiplayer & persist to database asynchronously
     if (!isSolo) {
       const manager = getCheckersRoomManager(roomCode);
       const updatedHistory = [notation, ...moveHistory];
@@ -467,6 +486,7 @@ export default function CheckersArenaPage() {
         type: 'CHECKERS_MOVE',
         board: newBoard,
         nextTurn,
+        lastMove: movePayload,
         mustJumpChainPos: hasSubsequentJump ? move.to : null,
         winner: gameWinner,
         redCaptured: newRedCaptured,
@@ -481,10 +501,11 @@ export default function CheckersArenaPage() {
           ...room,
           boardState: newBoard,
           currentTurn: nextTurn,
+          lastMove: movePayload,
           winner: gameWinner || null,
           moveHistory: updatedHistory,
           status: gameWinner ? 'GAME_OVER' : 'PLAYING',
-        });
+        }).catch(err => console.error('Failed saving checkers room move:', err));
       }
     }
   }, [board, currentTurn, isSolo, myPlayerColor, redCaptured, blackCaptured, turnTimeLimit, roomCode, room, moveHistory]);
@@ -590,6 +611,7 @@ export default function CheckersArenaPage() {
     setBoard(initialBoard);
     setCurrentTurn('red');
     setSelectedPos(null);
+    setLastMove(null);
     setMustJumpChainPos(null);
     setWinner(null);
     setRedCaptured(0);
@@ -609,10 +631,11 @@ export default function CheckersArenaPage() {
           ...room,
           boardState: initialBoard,
           currentTurn: 'red',
+          lastMove: null,
           winner: null,
           moveHistory: [],
           status: 'PLAYING',
-        });
+        }).catch(err => console.error('Failed saving rematch:', err));
       }
     }
   };
@@ -1057,6 +1080,29 @@ export default function CheckersArenaPage() {
               )}
             </div>
 
+            {/* Last Move Tracker Banner */}
+            {lastMove && (
+              <div className="mb-2.5 flex items-center gap-2 px-3.5 py-1 bg-slate-900/90 border border-slate-800 rounded-full text-xs text-slate-300 shadow-md animate-fade-in">
+                <span className="flex h-2 w-2 relative">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Spot Played:</span>
+                <span className="font-mono font-bold text-amber-300">
+                  {String.fromCharCode(65 + lastMove.from.col)}{8 - lastMove.from.row}
+                </span>
+                <span className="text-slate-500 text-[10px]">➔</span>
+                <span className="font-mono font-bold text-emerald-400">
+                  {String.fromCharCode(65 + lastMove.to.col)}{8 - lastMove.to.row}
+                </span>
+                {lastMove.captures && lastMove.captures.length > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold ml-0.5">
+                    +{lastMove.captures.length} captured
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* The 8x8 Board Canvas */}
             <div className="relative p-2.5 sm:p-3 bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 rounded-3xl border-2 border-slate-700/80 shadow-2xl">
               <div className="grid grid-cols-8 grid-rows-8 gap-1 w-[320px] h-[320px] sm:w-[440px] sm:h-[440px] md:w-[480px] md:h-[480px]">
@@ -1064,6 +1110,8 @@ export default function CheckersArenaPage() {
                   row.map((piece, c) => {
                     const isDarkSquare = (r + c) % 2 === 1;
                     const isSelected = selectedPos?.row === r && selectedPos?.col === c;
+                    const isLastMoveFrom = lastMove?.from && lastMove.from.row === r && lastMove.from.col === c;
+                    const isLastMoveTo = lastMove?.to && lastMove.to.row === r && lastMove.to.col === c;
                     const validDest = selectedDestinations.find(m => m.to.row === r && m.to.col === c);
                     const isJump = validDest && validDest.captures && validDest.captures.length > 0;
                     const isKingPiece = piece ? isKing(piece) : false;
@@ -1075,8 +1123,29 @@ export default function CheckersArenaPage() {
                         onClick={() => handleSquareClick(r, c)}
                         className={`relative flex items-center justify-center rounded-lg sm:rounded-xl cursor-pointer transition-all duration-150 ${
                           isDarkSquare ? 'bg-slate-800/90' : 'bg-slate-700/30'
-                        } ${isSelected ? 'ring-4 ring-amber-400 ring-inset shadow-inner' : ''} hover:brightness-110`}
+                        } ${
+                          isSelected ? 'ring-4 ring-amber-400 ring-inset shadow-inner' : ''
+                        } ${
+                          isLastMoveTo ? 'ring-4 ring-emerald-400 ring-inset bg-emerald-950/30 shadow-[0_0_12px_rgba(52,211,153,0.35)]' : ''
+                        } ${
+                          isLastMoveFrom ? 'ring-2 ring-amber-400/60 ring-dashed bg-amber-950/20' : ''
+                        } hover:brightness-110`}
                       >
+                        {/* Realtime Last Move Target Spot Indicator */}
+                        {isLastMoveTo && (
+                          <span className="absolute -top-1 -right-1 z-20 flex h-3.5 w-3.5 pointer-events-none">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border border-white/80 shadow" />
+                          </span>
+                        )}
+
+                        {/* Realtime Last Move Origin Marker */}
+                        {isLastMoveFrom && !piece && (
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-40">
+                            <div className="w-3.5 h-3.5 rounded-full border-2 border-dashed border-amber-300" />
+                          </div>
+                        )}
+
                         {/* Valid Move Indicator Dot */}
                         {validDest && (
                           <div className={`absolute z-20 rounded-full transition-transform transform scale-100 ${
