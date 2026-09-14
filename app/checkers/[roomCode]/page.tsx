@@ -1401,10 +1401,11 @@ export default function CheckersArenaPage() {
                       {/* Tactile Checkers Piece (Red & Black Seeds) */}
                       {piece && (
                         <div
-                          className={`relative w-[82%] h-[82%] sm:w-[84%] sm:h-[84%] rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shadow-xl transition-all duration-200 transform ${
+                          style={{ borderRadius: '9999px' }}
+                          className={`checkers-seed rounded-full relative w-[82%] h-[82%] sm:w-[84%] sm:h-[84%] flex items-center justify-center font-bold text-xs sm:text-sm shadow-2xl transition-all duration-200 transform ${
                             piece === 'r' || piece === 'R'
-                              ? 'bg-gradient-to-b from-red-500 via-red-600 to-red-800 border-2 sm:border-[3px] border-red-300/90 text-white shadow-xl shadow-red-950/60'
-                              : 'bg-gradient-to-b from-slate-600 via-slate-700 to-slate-900 border-2 sm:border-[3px] border-slate-300/90 text-slate-100 shadow-xl shadow-black ring-1 ring-white/25'
+                              ? 'bg-gradient-to-b from-red-500 via-red-600 to-red-800 border-2 sm:border-[3px] border-red-300/90 text-white shadow-red-950/80'
+                              : 'bg-gradient-to-b from-slate-600 via-slate-700 to-slate-900 border-2 sm:border-[3px] border-slate-300/90 text-slate-100 shadow-black ring-1 ring-white/25'
                           } ${
                             // Turn-based highlighting & selection feedback
                             isSelected
@@ -1420,7 +1421,10 @@ export default function CheckersArenaPage() {
                               : 'cursor-default'
                           }`}
                         >
-                          <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full border border-white/20 flex items-center justify-center">
+                          <div 
+                            style={{ borderRadius: '9999px' }}
+                            className="checkers-seed rounded-full w-[65%] h-[65%] border border-white/25 flex items-center justify-center shadow-inner"
+                          >
                             {isKingPiece && (
                               <Crown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-300 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] animate-pulse" />
                             )}

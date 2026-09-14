@@ -6,8 +6,9 @@
     --foreground: #09090b;
   }
 
-  * {
-    border-radius: 0px !important;
+  /* Checkers & circular disc helpers */
+  .rounded-full, .checkers-seed {
+    border-radius: 9999px !important;
   }
 
   body {
