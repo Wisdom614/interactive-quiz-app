@@ -51,7 +51,14 @@ export type CheckersBroadcastEvent =
   | { type: 'CHECKERS_GUEST_JOINED'; guestId: string; guestName: string; scheduledStartAt: number }
   | { type: 'CHECKERS_START_MATCH'; room: CheckersRoom }
   | { type: 'CHECKERS_REMATCH'; board: BoardState }
-  | { type: 'CHECKERS_EMOJI'; emoji: string; sender: string };
+  | { type: 'CHECKERS_EMOJI'; emoji: string; sender: string }
+  | {
+      type: 'CHECKERS_FORFEIT';
+      leaverId: string;
+      leaverName: string;
+      winnerColor: PlayerColor;
+      reason: string;
+    };
 
 const CHECKERS_STORAGE_PREFIX = 'quizpulse_checkers_room_';
 
@@ -64,6 +71,9 @@ export class CheckersRoomManager {
   private listeners: Set<(event: CheckersBroadcastEvent) => void> = new Set();
   private isSupabaseSubscribed = false;
   private pendingBroadcastQueue: CheckersBroadcastEvent[] = [];
+  private myPlayerId: string | null = null;
+  private myPlayerName: string | null = null;
+  private myRole: 'host' | 'guest' | null = null;
 
   constructor(roomCode: string) {
     this.roomCode = roomCode.toUpperCase();
@@ -82,12 +92,31 @@ export class CheckersRoomManager {
       const supabase = getSupabaseClient();
       if (supabase && isSupabaseConfigured) {
         this.supabaseChannel = supabase.channel(this.channelName, {
-          config: { broadcast: { self: false } },
+          config: {
+            broadcast: { self: false },
+            presence: { key: this.roomCode },
+          },
         });
 
         this.supabaseChannel
           .on('broadcast', { event: 'checkers_event' }, ({ payload }) => {
             this.notifyListeners(payload as CheckersBroadcastEvent);
+          })
+          .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+            if (leftPresences && Array.isArray(leftPresences)) {
+              leftPresences.forEach((pres: any) => {
+                if (pres && pres.playerId && pres.playerId !== this.myPlayerId) {
+                  const winnerColor: PlayerColor = pres.role === 'host' ? 'black' : 'red';
+                  this.notifyListeners({
+                    type: 'CHECKERS_FORFEIT',
+                    leaverId: pres.playerId,
+                    leaverName: pres.name || 'Opponent',
+                    winnerColor,
+                    reason: 'Opponent disconnected from the match',
+                  });
+                }
+              });
+            }
           })
           .on(
             'postgres_changes',
@@ -107,6 +136,16 @@ export class CheckersRoomManager {
           .subscribe((status) => {
             if (status === 'SUBSCRIBED') {
               this.isSupabaseSubscribed = true;
+
+              if (this.myPlayerId && this.supabaseChannel) {
+                this.supabaseChannel.track({
+                  playerId: this.myPlayerId,
+                  name: this.myPlayerName || 'Player',
+                  role: this.myRole || 'guest',
+                  joinedAt: Date.now(),
+                });
+              }
+
               while (this.pendingBroadcastQueue.length > 0) {
                 const queued = this.pendingBroadcastQueue.shift();
                 if (queued && this.supabaseChannel) {
@@ -121,6 +160,25 @@ export class CheckersRoomManager {
               this.isSupabaseSubscribed = false;
             }
           });
+      }
+    }
+  }
+
+  public trackPresence(playerId: string, name: string, role: 'host' | 'guest') {
+    this.myPlayerId = playerId;
+    this.myPlayerName = name;
+    this.myRole = role;
+
+    if (this.supabaseChannel && this.isSupabaseSubscribed) {
+      try {
+        this.supabaseChannel.track({
+          playerId,
+          name,
+          role,
+          joinedAt: Date.now(),
+        });
+      } catch (e) {
+        console.warn('Presence track error', e);
       }
     }
   }
@@ -361,6 +419,50 @@ export class CheckersRoomManager {
       type: 'CHECKERS_START_MATCH',
       room: updatedRoom,
     });
+    this.broadcast({
+      type: 'CHECKERS_SYNC',
+      room: updatedRoom,
+    });
+
+    return updatedRoom;
+  }
+
+  /**
+   * Forfeits match, declaring other player the winner
+   */
+  public async forfeitMatch(
+    leaverId: string,
+    leaverName: string,
+    winnerColor: PlayerColor,
+    reason: string = 'Opponent forfeited'
+  ): Promise<CheckersRoom | null> {
+    const current = await this.fetchRoomAsync();
+    if (!current) return null;
+
+    const updatedRoom: CheckersRoom = {
+      ...current,
+      status: 'GAME_OVER',
+      winner: winnerColor,
+      settings: {
+        ...(current.settings || {}),
+        winReason: 'forfeit',
+        forfeitLeaverId: leaverId,
+        forfeitLeaverName: leaverName,
+        forfeitReason: reason,
+      },
+    };
+
+    await this.saveRoom(updatedRoom);
+
+    const event: CheckersBroadcastEvent = {
+      type: 'CHECKERS_FORFEIT',
+      leaverId,
+      leaverName,
+      winnerColor,
+      reason,
+    };
+
+    this.broadcast(event);
     this.broadcast({
       type: 'CHECKERS_SYNC',
       room: updatedRoom,

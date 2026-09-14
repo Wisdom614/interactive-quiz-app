@@ -28,7 +28,8 @@ import {
   Hourglass,
   CheckCircle2,
   Radio,
-  ShieldAlert
+  ShieldAlert,
+  Flag
 } from 'lucide-react';
 import { 
   BoardState, 
@@ -90,6 +91,8 @@ export default function CheckersArenaPage() {
   const [validMoves, setValidMoves] = useState<Move[]>([]);
   const [mustJumpChainPos, setMustJumpChainPos] = useState<Position | null>(null);
   const [winner, setWinner] = useState<PlayerColor | 'draw' | null>(null);
+  const [forfeitInfo, setForfeitInfo] = useState<{ winnerColor: PlayerColor | 'draw'; leaverName: string; reason: string } | null>(null);
+  const [showForfeitModal, setShowForfeitModal] = useState(false);
 
 
   // Stats & Clocks
@@ -181,9 +184,19 @@ export default function CheckersArenaPage() {
       if (fetchedRoom.winner) setWinner(fetchedRoom.winner);
       if (fetchedRoom.moveHistory) setMoveHistory(fetchedRoom.moveHistory);
       if (fetchedRoom.lastMove) setLastMove(fetchedRoom.lastMove);
+      if (fetchedRoom.settings?.winReason === 'forfeit') {
+        setForfeitInfo({
+          winnerColor: fetchedRoom.winner || 'red',
+          leaverName: fetchedRoom.settings.forfeitLeaverName || 'Opponent',
+          reason: fetchedRoom.settings.forfeitReason || 'Opponent left the match',
+        });
+      }
 
       // Determine Host vs Guest
-      if (fetchedRoom.hostId === pId && roleFromUrl !== 'guest') {
+      const detectedRole = (fetchedRoom.hostId === pId && roleFromUrl !== 'guest') ? 'host' : 'guest';
+      manager.trackPresence(pId, pName, detectedRole);
+
+      if (detectedRole === 'host') {
         setMyRole('host');
       } else {
         // Must join as Guest
@@ -192,6 +205,7 @@ export default function CheckersArenaPage() {
           const joinRes = await manager.joinAsGuest(pId, pName, 'zap');
           if (joinRes.success && joinRes.room) {
             setRoom(joinRes.room);
+            manager.trackPresence(pId, pName, 'guest');
             sound.playSelect();
           } else if (joinRes.error === 'ROOM_FULL') {
             setIsRoomFull(true);
@@ -212,6 +226,13 @@ export default function CheckersArenaPage() {
         if (event.room.winner) setWinner(event.room.winner);
         if (event.room.moveHistory) setMoveHistory(event.room.moveHistory);
         if (event.room.lastMove) setLastMove(event.room.lastMove);
+        if (event.room.settings?.winReason === 'forfeit') {
+          setForfeitInfo({
+            winnerColor: event.room.winner || 'red',
+            leaverName: event.room.settings.forfeitLeaverName || 'Opponent',
+            reason: event.room.settings.forfeitReason || 'Opponent left the match',
+          });
+        }
       } else if (event.type === 'CHECKERS_GUEST_JOINED') {
         sound.playPop();
         setRoom(prev => prev ? {
@@ -255,6 +276,7 @@ export default function CheckersArenaPage() {
         setCurrentTurn('red');
         setSelectedPos(null);
         setLastMove(null);
+        setForfeitInfo(null);
         setMustJumpChainPos(null);
         setWinner(null);
         setRedCaptured(0);
@@ -263,6 +285,19 @@ export default function CheckersArenaPage() {
         sound.playSelect();
       } else if (event.type === 'CHECKERS_EMOJI') {
         triggerEmoji(event.emoji, false);
+      } else if (event.type === 'CHECKERS_FORFEIT') {
+        setWinner(event.winnerColor);
+        setForfeitInfo({
+          winnerColor: event.winnerColor,
+          leaverName: event.leaverName,
+          reason: event.reason,
+        });
+        const myAssigned = roleFromUrl === 'guest' ? 'black' : 'red';
+        if (event.winnerColor === myAssigned) {
+          sound.playVictory();
+        } else {
+          sound.playGameOver();
+        }
       }
     });
 
@@ -296,6 +331,13 @@ export default function CheckersArenaPage() {
             if (dbRoom.winner) setWinner(dbRoom.winner);
             if (dbRoom.moveHistory) setMoveHistory(dbRoom.moveHistory);
             if (dbRoom.lastMove) setLastMove(dbRoom.lastMove);
+            if (dbRoom.settings?.winReason === 'forfeit') {
+              setForfeitInfo({
+                winnerColor: dbRoom.winner || 'red',
+                leaverName: dbRoom.settings.forfeitLeaverName || 'Opponent',
+                reason: dbRoom.settings.forfeitReason || 'Opponent left the match',
+              });
+            }
             return dbRoom;
           }
           return prev;
@@ -612,6 +654,7 @@ export default function CheckersArenaPage() {
     setCurrentTurn('red');
     setSelectedPos(null);
     setLastMove(null);
+    setForfeitInfo(null);
     setMustJumpChainPos(null);
     setWinner(null);
     setRedCaptured(0);
@@ -635,10 +678,64 @@ export default function CheckersArenaPage() {
           winner: null,
           moveHistory: [],
           status: 'PLAYING',
+          settings: {
+            ...(room.settings || {}),
+            winReason: null,
+            forfeitLeaverId: null,
+            forfeitLeaverName: null,
+            forfeitReason: null,
+          },
         }).catch(err => console.error('Failed saving rematch:', err));
       }
     }
   };
+
+  // ---------------------------------------------------------------------------
+  // Forfeit / Resignation Handler
+  // ---------------------------------------------------------------------------
+  const handleConfirmForfeit = async () => {
+    setShowForfeitModal(false);
+    if (isSolo) {
+      setWinner(opponentColor);
+      setForfeitInfo({
+        winnerColor: opponentColor,
+        leaverName: myPlayerName,
+        reason: 'You resigned from the match',
+      });
+      sound.playGameOver();
+      return;
+    }
+
+    const manager = getCheckersRoomManager(roomCode);
+    await manager.forfeitMatch(myPlayerId, myPlayerName, opponentColor, `${myPlayerName} resigned from the match`);
+    setWinner(opponentColor);
+    setForfeitInfo({
+      winnerColor: opponentColor,
+      leaverName: myPlayerName,
+      reason: 'You resigned from the match',
+    });
+    sound.playGameOver();
+  };
+
+  // ---------------------------------------------------------------------------
+  // Detect Departure / Forfeit when browser window or tab is closed during active match
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (isSolo || !room || room.status !== 'PLAYING' || winner) return;
+
+    const handleWindowLeave = () => {
+      const manager = getCheckersRoomManager(roomCode);
+      manager.forfeitMatch(myPlayerId, myPlayerName, opponentColor, `${myPlayerName} left the game`);
+    };
+
+    window.addEventListener('beforeunload', handleWindowLeave);
+    window.addEventListener('pagehide', handleWindowLeave);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleWindowLeave);
+      window.removeEventListener('pagehide', handleWindowLeave);
+    };
+  }, [isSolo, room?.status, winner, roomCode, myPlayerId, myPlayerName, opponentColor]);
 
   // Emoji Reactions
   const triggerEmoji = (emoji: string, broadcast = true) => {
@@ -779,6 +876,12 @@ export default function CheckersArenaPage() {
       <header className="relative z-10 w-full max-w-6xl mx-auto px-4 py-4 sm:py-6 flex items-center justify-between">
         <Link 
           href="/checkers"
+          onClick={(e) => {
+            if (!isSolo && room?.status === 'PLAYING' && !winner) {
+              e.preventDefault();
+              setShowForfeitModal(true);
+            }
+          }}
           className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors group"
         >
           <div className="p-2 rounded-xl bg-slate-900 border border-slate-800 group-hover:border-slate-700">
@@ -811,6 +914,18 @@ export default function CheckersArenaPage() {
 
         {/* Action Controls */}
         <div className="flex items-center gap-2">
+          {/* Resign / Forfeit Button */}
+          {!isLobbyOrStarting && !winner && (
+            <button
+              onClick={() => setShowForfeitModal(true)}
+              className="px-2.5 sm:px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 hover:text-rose-200 text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+              title="Forfeit / Resign match"
+            >
+              <Flag className="w-3.5 h-3.5 text-rose-400" />
+              <span className="hidden sm:inline">Resign</span>
+            </button>
+          )}
+
           {!isLobbyOrStarting && (
             <button
               onClick={() => resetGame(true)}
@@ -1341,23 +1456,45 @@ export default function CheckersArenaPage() {
       {winner && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <div className="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-3xl p-6 sm:p-8 text-center shadow-2xl animate-scale-up">
-            <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto mb-4">
-              <Trophy className="w-8 h-8 text-amber-400" />
+            <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+              forfeitInfo ? 'bg-rose-500/10 border border-rose-500/30' : 'bg-amber-500/10 border border-amber-500/30'
+            }`}>
+              {forfeitInfo ? (
+                <Flag className="w-8 h-8 text-rose-400" />
+              ) : (
+                <Trophy className="w-8 h-8 text-amber-400" />
+              )}
             </div>
 
+            {forfeitInfo && (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-bold uppercase tracking-wider mb-3">
+                <Flag className="w-3.5 h-3.5" />
+                {winner === myPlayerColor ? 'Opponent Forfeited' : 'Match Forfeited'}
+              </div>
+            )}
+
             <h2 className="text-2xl sm:text-3xl font-extrabold text-white mb-1">
-              {winner === 'draw' ? 'Stalemate Draw!' : `${winner.toUpperCase()} Wins!`}
+              {forfeitInfo 
+                ? (winner === myPlayerColor ? 'Victory by Forfeit!' : 'Match Forfeited')
+                : (winner === 'draw' ? 'Stalemate Draw!' : `${winner.toUpperCase()} Wins!`)}
             </h2>
 
-            <p className="text-slate-400 text-sm mb-6">
-              {winner === myPlayerColor 
-                ? 'Masterful strategy! You dominated the board.' 
-                : 'Good game! Analyze your line and try again.'}
+            <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+              {forfeitInfo
+                ? (winner === myPlayerColor 
+                    ? `${forfeitInfo.leaverName || 'Your opponent'} left the match. You have been declared the winner!` 
+                    : 'You resigned from the match. Victory awarded to opponent.')
+                : (winner === myPlayerColor 
+                    ? 'Masterful strategy! You dominated the board.' 
+                    : 'Good game! Analyze your line and try again.')}
             </p>
 
             <div className="space-y-2">
               <button
-                onClick={() => resetGame(true)}
+                onClick={() => {
+                  setForfeitInfo(null);
+                  resetGame(true);
+                }}
                 className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-red-600/30 transition"
               >
                 <RotateCcw className="w-4 h-4" />
@@ -1369,6 +1506,37 @@ export default function CheckersArenaPage() {
               >
                 Back to Lobby
               </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Forfeit Confirmation Modal */}
+      {showForfeitModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-slate-900 border border-rose-500/40 rounded-3xl p-6 sm:p-7 text-center shadow-2xl animate-scale-up">
+            <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mx-auto mb-4 text-rose-400">
+              <Flag className="w-7 h-7" />
+            </div>
+
+            <h3 className="text-xl font-extrabold text-white mb-2">Forfeit Match?</h3>
+            <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+              Are you sure you want to resign from this match? Your opponent will be immediately declared the winner.
+            </p>
+
+            <div className="space-y-2.5">
+              <button
+                onClick={handleConfirmForfeit}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-bold text-sm shadow-lg shadow-rose-600/30 transition"
+              >
+                Yes, Forfeit Match
+              </button>
+              <button
+                onClick={() => setShowForfeitModal(false)}
+                className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm transition"
+              >
+                Cancel & Keep Playing
+              </button>
             </div>
           </div>
         </div>
