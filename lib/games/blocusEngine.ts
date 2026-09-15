@@ -35,7 +35,7 @@ export interface BlocusEnclosure {
 }
 
 export interface BlocusGridPreset {
-  id: 'pocket' | 'standard' | 'grand';
+  id: 'a4' | 'pocket' | 'standard' | 'grand';
   label: string;
   width: number;
   height: number;
@@ -43,12 +43,12 @@ export interface BlocusGridPreset {
 }
 
 export const BLOCUS_GRID_PRESETS: Record<string, BlocusGridPreset> = {
-  pocket: {
-    id: 'pocket',
-    label: 'Pocket Sheet (15×15)',
-    width: 15,
-    height: 15,
-    defaultWinTarget: 8,
+  a4: {
+    id: 'a4',
+    label: 'A4 Mathematics Sheet (25×35)',
+    width: 25,
+    height: 35,
+    defaultWinTarget: 20,
   },
   standard: {
     id: 'standard',
@@ -56,6 +56,13 @@ export const BLOCUS_GRID_PRESETS: Record<string, BlocusGridPreset> = {
     width: 21,
     height: 21,
     defaultWinTarget: 15,
+  },
+  pocket: {
+    id: 'pocket',
+    label: 'Pocket Sheet (15×15)',
+    width: 15,
+    height: 15,
+    defaultWinTarget: 8,
   },
   grand: {
     id: 'grand',
@@ -94,14 +101,14 @@ export function keyToPos(key: string): BlocusPosition {
  * Creates a fresh game state
  */
 export function createInitialBlocusState(options?: {
-  preset?: 'pocket' | 'standard' | 'grand';
+  preset?: 'a4' | 'pocket' | 'standard' | 'grand';
   customWidth?: number;
   customHeight?: number;
   winTarget?: number;
   playerCount?: 2 | 3;
 }): BlocusGameState {
-  const presetKey = options?.preset || 'standard';
-  const preset = BLOCUS_GRID_PRESETS[presetKey] || BLOCUS_GRID_PRESETS.standard;
+  const presetKey = options?.preset || 'a4';
+  const preset = BLOCUS_GRID_PRESETS[presetKey] || BLOCUS_GRID_PRESETS.a4;
   const width = options?.customWidth || preset.width;
   const height = options?.customHeight || preset.height;
   const winTarget = options?.winTarget || preset.defaultWinTarget;

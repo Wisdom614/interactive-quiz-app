@@ -17,7 +17,7 @@ export interface BlocusRoom {
   scheduledStartAt: number | null;
   turnTimerSec: number;
   winTarget: number;
-  gridPreset: 'pocket' | 'standard' | 'grand';
+  gridPreset: 'a4' | 'pocket' | 'standard' | 'grand';
   gameState: BlocusGameState;
   currentTurn: BlocusColor;
   winner: BlocusColor | 'draw' | null;
@@ -496,13 +496,13 @@ export async function createBlocusRoom(options: {
   hostAvatar?: string;
   turnTimerSec?: number;
   winTarget?: number;
-  gridPreset?: 'pocket' | 'standard' | 'grand';
+  gridPreset?: 'a4' | 'pocket' | 'standard' | 'grand';
 }): Promise<BlocusRoom> {
   const roomCode = generateBlocusRoomCode();
   const manager = getBlocusRoomManager(roomCode);
 
-  const preset = options.gridPreset || 'standard';
-  const target = options.winTarget || (preset === 'pocket' ? 8 : preset === 'standard' ? 15 : 25);
+  const preset = options.gridPreset || 'a4';
+  const target = options.winTarget || (preset === 'pocket' ? 8 : preset === 'standard' ? 15 : preset === 'a4' ? 20 : 25);
 
   const initialGameState = createInitialBlocusState({
     preset,

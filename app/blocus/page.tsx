@@ -34,8 +34,8 @@ export default function BlocusLobbyPage() {
 
   // Solo & Pass-and-Play settings
   const [difficulty, setDifficulty] = useState<'EASY' | 'MEDIUM'>('MEDIUM');
-  const [gridPreset, setGridPreset] = useState<'pocket' | 'standard' | 'grand'>('standard');
-  const [winTarget, setWinTarget] = useState<number>(15);
+  const [gridPreset, setGridPreset] = useState<'a4' | 'pocket' | 'standard' | 'grand'>('a4');
+  const [winTarget, setWinTarget] = useState<number>(20);
   const [playerColor, setPlayerColor] = useState<BlocusColor>('blue');
   const [turnTimerSec, setTurnTimerSec] = useState<number>(30); // 20, 30, 60, 0 (unlimited)
   const [playerCount, setPlayerCount] = useState<2 | 3>(2);
@@ -271,10 +271,10 @@ export default function BlocusLobbyPage() {
                 <Grid className="w-3.5 h-3.5 text-blue-400" />
                 Paper Sheet Size
               </span>
-              <span className="text-[11px] text-slate-500 font-normal">Pan & zoom supported</span>
+              <span className="text-[11px] text-slate-500 font-normal">Smooth scroll & pan</span>
             </label>
-            <div className="grid grid-cols-3 gap-2.5">
-              {(['pocket', 'standard', 'grand'] as const).map((presetKey) => {
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              {(['a4', 'standard', 'pocket', 'grand'] as const).map((presetKey) => {
                 const p = BLOCUS_GRID_PRESETS[presetKey];
                 const isSel = gridPreset === presetKey;
                 return (
@@ -286,12 +286,17 @@ export default function BlocusLobbyPage() {
                       setGridPreset(presetKey);
                       setWinTarget(p.defaultWinTarget);
                     }}
-                    className={`p-3 rounded-none border-2 text-left font-bold text-xs transition-all ${
+                    className={`p-3 rounded-none border-2 text-left font-bold text-xs transition-all relative ${
                       isSel
                         ? 'bg-blue-950/50 border-blue-500 text-blue-200 shadow-md shadow-blue-500/10'
                         : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
                     }`}
                   >
+                    {presetKey === 'a4' && (
+                      <span className="absolute -top-2 right-2 bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.2 uppercase tracking-wider">
+                        A4 Paper
+                      </span>
+                    )}
                     <span className="block font-black text-white">{p.width}×{p.height}</span>
                     <span className="text-[10px] text-slate-400 block mt-0.5">{p.label.split(' ')[0]}</span>
                   </button>

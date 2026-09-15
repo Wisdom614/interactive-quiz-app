@@ -62,3 +62,53 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #27272a;
 }
+
+/* Blocus Ink & Paper Visual Animations */
+@keyframes blocusInkRipple {
+  0% {
+    r: 4px;
+    opacity: 0.9;
+    stroke-width: 3px;
+  }
+  100% {
+    r: 28px;
+    opacity: 0;
+    stroke-width: 0.5px;
+  }
+}
+
+.animate-blocus-ripple {
+  animation: blocusInkRipple 0.75s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+}
+
+@keyframes blocusLastMovePing {
+  0% {
+    r: 7px;
+    opacity: 0.9;
+  }
+  50% {
+    r: 15px;
+    opacity: 0.35;
+  }
+  100% {
+    r: 7px;
+    opacity: 0.9;
+  }
+}
+
+.animate-blocus-last-move {
+  animation: blocusLastMovePing 1.8s ease-in-out infinite;
+}
+
+@keyframes blocusRecaptureGlow {
+  0%, 100% {
+    filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 12px rgba(245, 158, 11, 0.85));
+  }
+}
+
+.animate-recapture-glow {
+  animation: blocusRecaptureGlow 2s ease-in-out infinite;
+}

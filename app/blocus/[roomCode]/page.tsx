@@ -31,7 +31,11 @@ import {
   Crosshair, 
   Layers, 
   HelpCircle,
-  Move
+  Move,
+  Hand,
+  PenTool,
+  LocateFixed,
+  Scan
 } from 'lucide-react';
 import { 
   BlocusGameState, 
@@ -99,8 +103,8 @@ export default function BlocusArenaPage() {
   // Solo & Pass-and-Play URL parameters
   const aiDifficulty = (searchParams.get('diff') as 'EASY' | 'MEDIUM') || 'MEDIUM';
   const soloAssignedColor = (searchParams.get('color') as BlocusColor) || 'blue';
-  const urlPreset = (searchParams.get('preset') as 'pocket' | 'standard' | 'grand') || 'standard';
-  const urlTarget = parseInt(searchParams.get('target') || '15', 10);
+  const urlPreset = (searchParams.get('preset') as 'a4' | 'pocket' | 'standard' | 'grand') || 'a4';
+  const urlTarget = parseInt(searchParams.get('target') || (urlPreset === 'a4' ? '20' : '15'), 10);
   const urlTimer = parseInt(searchParams.get('timer') || '30', 10);
   const urlPlayerCount = parseInt(searchParams.get('players') || '2', 10) as 2 | 3;
 
@@ -129,6 +133,36 @@ export default function BlocusArenaPage() {
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // Tool & Touch Navigation Mode: 'draw' | 'pan'
+  const [interactionMode, setInteractionMode] = useState<'draw' | 'pan'>('draw');
+
+  // Mobile Tap / Precision Selected Target
+  const [selectedPos, setSelectedPos] = useState<BlocusPosition | null>(null);
+
+  // Placed Dot Ink Ripples
+  const [ripples, setRipples] = useState<{ id: number; x: number; y: number; color: BlocusColor }[]>([]);
+
+  // DOM Container & SVG Refs
+  const arenaContainerRef = useRef<HTMLDivElement | null>(null);
+  const svgRef = useRef<SVGSVGElement | null>(null);
+
+  // Multi-Touch Gesture Tracker
+  const touchGestureRef = useRef<{
+    isTwoFinger: boolean;
+    initialDist: number;
+    initialZoom: number;
+    initialPan: { x: number; y: number };
+    startPointer: { x: number; y: number };
+    dragDistance: number;
+  }>({
+    isTwoFinger: false,
+    initialDist: 0,
+    initialZoom: 1.2,
+    initialPan: { x: 0, y: 0 },
+    startPointer: { x: 0, y: 0 },
+    dragDistance: 0,
+  });
 
   // Hover & Snapped Target Reticle
   const [hoveredPos, setHoveredPos] = useState<BlocusPosition | null>(null);
@@ -314,6 +348,7 @@ export default function BlocusArenaPage() {
         setGameState(event.room.gameState);
       } else if (event.type === 'BLOCUS_MOVE') {
         setGameState(event.gameState);
+        triggerPlacementRipple(event.x, event.y, event.color);
         sound.playPenDot();
 
         if (event.isRecapture) {
@@ -419,6 +454,14 @@ export default function BlocusArenaPage() {
     await managerRef.current.startMatchNow();
   };
 
+  const triggerPlacementRipple = useCallback((x: number, y: number, color: BlocusColor) => {
+    const id = Date.now() + Math.random();
+    setRipples((prev) => [...prev, { id, x, y, color }]);
+    setTimeout(() => {
+      setRipples((prev) => prev.filter((r) => r.id !== id));
+    }, 850);
+  }, []);
+
   // Place Dot Action
   const handlePlaceDot = useCallback(
     async (x: number, y: number) => {
@@ -432,6 +475,13 @@ export default function BlocusArenaPage() {
       }
 
       sound.playPenDot();
+      triggerPlacementRipple(x, y, gameState.currentTurn);
+      setSelectedPos(null);
+
+      if (typeof window !== 'undefined' && window.navigator && 'vibrate' in window.navigator) {
+        window.navigator.vibrate(result.newCapturesCount > 0 ? [35, 50, 35] : 18);
+      }
+
       if (result.isRecapture) {
         sound.playRecaptureFanfare();
         showNotification(`Fortress Recaptured! (+${result.newCapturesCount} dots)`, 'recapture');
@@ -464,7 +514,7 @@ export default function BlocusArenaPage() {
         });
       }
     },
-    [gameState, isMyTurn, isMultiplayer, room]
+    [gameState, isMyTurn, isMultiplayer, room, triggerPlacementRipple]
   );
 
   // Solo AI Bot move turn
@@ -482,6 +532,7 @@ export default function BlocusArenaPage() {
 
         if (result.success) {
           sound.playPenDot();
+          triggerPlacementRipple(aiMove.x, aiMove.y, oppColor);
           if (result.isRecapture) {
             sound.playRecaptureFanfare();
             showNotification(`AI Recaptured a Fortress! (+${result.newCapturesCount})`, 'recapture');
@@ -496,7 +547,7 @@ export default function BlocusArenaPage() {
 
       return () => clearTimeout(timer);
     }
-  }, [gameState, isSolo, soloAssignedColor, aiDifficulty]);
+  }, [gameState, isSolo, soloAssignedColor, aiDifficulty, triggerPlacementRipple]);
 
   // Solo Rematch
   const handleSoloRematch = () => {
@@ -606,7 +657,7 @@ export default function BlocusArenaPage() {
   // Zoom helpers
   const handleZoom = (delta: number) => {
     sound.playSelect();
-    setZoom((prev) => Math.min(2.5, Math.max(0.6, prev + delta)));
+    setZoom((prev) => Math.min(3.0, Math.max(0.45, Number((prev + delta).toFixed(2)))));
   };
 
   const resetView = () => {
@@ -615,18 +666,105 @@ export default function BlocusArenaPage() {
     setPan({ x: 0, y: 0 });
   };
 
-  // Pointer event handlers for panning paper
+  // Coordinate math for graph paper
+  const cellSize = 32; // 32px per 5mm graph square
+  const paperPadding = 48; // padding around grid intersections
+  const boardWidthPx = (gameState.width - 1) * cellSize + paperPadding * 2;
+  const boardHeightPx = (gameState.height - 1) * cellSize + paperPadding * 2;
+
+  // Scroll to horizontal sections on mobile (left margin, center action, right edge)
+  const scrollToSection = (target: 'left' | 'center' | 'right') => {
+    sound.playSelect();
+    if (!arenaContainerRef.current) return;
+    const el = arenaContainerRef.current;
+    const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth);
+    let targetLeft = 0;
+    if (target === 'center') targetLeft = maxScroll / 2;
+    if (target === 'right') targetLeft = maxScroll;
+    el.scrollTo({ left: targetLeft, behavior: 'smooth' });
+  };
+
+  // Fit board to current container viewport
+  const fitBoard = useCallback(() => {
+    sound.playSelect();
+    if (!arenaContainerRef.current) {
+      setZoom(1.0);
+      return;
+    }
+    const containerWidth = arenaContainerRef.current.clientWidth;
+    const containerHeight = arenaContainerRef.current.clientHeight;
+    const scaleX = (containerWidth - 32) / boardWidthPx;
+    const scaleY = (containerHeight - 32) / boardHeightPx;
+    const optimalZoom = Math.min(Math.max(Math.min(scaleX, scaleY), 0.45), 1.5);
+    setZoom(Number(optimalZoom.toFixed(2)));
+    if (arenaContainerRef.current) {
+      arenaContainerRef.current.scrollTo({
+        left: Math.max(0, (arenaContainerRef.current.scrollWidth - arenaContainerRef.current.clientWidth) / 2),
+        top: Math.max(0, (arenaContainerRef.current.scrollHeight - arenaContainerRef.current.clientHeight) / 2),
+        behavior: 'smooth',
+      });
+    }
+  }, [boardWidthPx, boardHeightPx]);
+
+  // Center viewport on the most recent move
+  const focusLastMove = useCallback(() => {
+    sound.playSelect();
+    if (!gameState.lastMove || !arenaContainerRef.current) return;
+    const moveX = paperPadding + gameState.lastMove.x * cellSize;
+    const moveY = paperPadding + gameState.lastMove.y * cellSize;
+    const el = arenaContainerRef.current;
+    const targetX = Math.max(0, moveX * zoom - el.clientWidth / 2);
+    const targetY = Math.max(0, moveY * zoom - el.clientHeight / 2);
+    el.scrollTo({ left: targetX, top: targetY, behavior: 'smooth' });
+  }, [gameState.lastMove, cellSize, paperPadding, zoom]);
+
+  // Initial auto-centering on mobile / mount
+  useEffect(() => {
+    if (arenaContainerRef.current) {
+      const el = arenaContainerRef.current;
+      const targetLeft = Math.max(0, (el.scrollWidth - el.clientWidth) / 2);
+      const targetTop = Math.max(0, (el.scrollHeight - el.clientHeight) / 2);
+      el.scrollTo({ left: targetLeft, top: targetTop, behavior: 'auto' });
+    }
+  }, [boardWidthPx, boardHeightPx]);
+
+  // Smooth mouse wheel zoom listener
+  useEffect(() => {
+    const el = arenaContainerRef.current;
+    if (!el) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      // If ctrl key is pressed or desktop user zooms
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const zoomFactor = e.deltaY < 0 ? 1.12 : 0.89;
+        setZoom((prev) => Math.min(2.5, Math.max(0.5, Number((prev * zoomFactor).toFixed(2)))));
+      }
+    };
+
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
+
+  // Pointer event handlers for desktop dragging / panning
   const handleMouseDown = (e: React.MouseEvent) => {
-    // Only pan if middle-click or Alt key held or dragging on background
-    if (e.button === 1 || e.altKey) {
+    if (interactionMode === 'pan' || e.button === 1 || e.button === 2 || e.altKey) {
       setIsDragging(true);
-      setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+      if (arenaContainerRef.current) {
+        setDragStart({
+          x: e.clientX + arenaContainerRef.current.scrollLeft,
+          y: e.clientY + arenaContainerRef.current.scrollTop,
+        });
+      }
     }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (isDragging) {
-      setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+    if (isDragging && arenaContainerRef.current) {
+      arenaContainerRef.current.scrollLeft = dragStart.x - e.clientX;
+      arenaContainerRef.current.scrollTop = dragStart.y - e.clientY;
     }
   };
 
@@ -634,23 +772,96 @@ export default function BlocusArenaPage() {
     setIsDragging(false);
   };
 
-  // Coordinate math for graph paper
-  const cellSize = 32; // 32px per 5mm graph square
-  const paperPadding = 48; // padding around grid intersections
-  const boardWidthPx = (gameState.width - 1) * cellSize + paperPadding * 2;
-  const boardHeightPx = (gameState.height - 1) * cellSize + paperPadding * 2;
+  // Touch tracking: allows natural mobile horizontal & vertical scrolling while supporting taps
+  const touchTrackRef = useRef<{
+    startX: number;
+    startY: number;
+    startTime: number;
+    hasMoved: boolean;
+    initialDist: number;
+    initialZoom: number;
+  }>({
+    startX: 0,
+    startY: 0,
+    startTime: 0,
+    hasMoved: false,
+    initialDist: 0,
+    initialZoom: 1.0,
+  });
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      touchTrackRef.current.initialDist = dist;
+      touchTrackRef.current.initialZoom = zoom;
+      touchTrackRef.current.hasMoved = true;
+    } else if (e.touches.length === 1) {
+      touchTrackRef.current.startX = e.touches[0].clientX;
+      touchTrackRef.current.startY = e.touches[0].clientY;
+      touchTrackRef.current.startTime = Date.now();
+      touchTrackRef.current.hasMoved = false;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 2 && touchTrackRef.current.initialDist > 0) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const factor = dist / touchTrackRef.current.initialDist;
+      const newZoom = Math.min(2.5, Math.max(0.6, Number((touchTrackRef.current.initialZoom * factor).toFixed(2))));
+      setZoom(newZoom);
+    } else if (e.touches.length === 1) {
+      const dx = e.touches[0].clientX - touchTrackRef.current.startX;
+      const dy = e.touches[0].clientY - touchTrackRef.current.startY;
+      if (Math.hypot(dx, dy) > 8) {
+        touchTrackRef.current.hasMoved = true;
+      }
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    const track = touchTrackRef.current;
+    // Deliberate stationary tap (< 8px movement and < 400ms duration)
+    if (!track.hasMoved && Date.now() - track.startTime < 400 && svgRef.current) {
+      const touch = e.changedTouches[0];
+      if (touch) {
+        const pos = getGridPositionFromPointer(svgRef.current, touch.clientX, touch.clientY);
+        if (pos) {
+          if (selectedPos && selectedPos.x === pos.x && selectedPos.y === pos.y) {
+            handlePlaceDot(pos.x, pos.y);
+          } else {
+            sound.playClick();
+            setSelectedPos(pos);
+            setHoveredPos(pos);
+            if (typeof window !== 'undefined' && window.navigator && 'vibrate' in window.navigator) {
+              window.navigator.vibrate(12);
+            }
+          }
+        }
+      }
+    }
+  };
+
   const traceSegments = useMemo(
     () => getTraceSegments(gameState),
     [gameState]
   );
+
+  const activePos = selectedPos || hoveredPos;
+
   const capturePreview = useMemo(() => {
-    if (!hoveredPos || !isMyTurn || gameState.dots[posToKey(hoveredPos.x, hoveredPos.y)]) {
+    if (!activePos || !isMyTurn || gameState.dots[posToKey(activePos.x, activePos.y)]) {
       return null;
     }
 
-    const result = placeBlocusDot(gameState, hoveredPos.x, hoveredPos.y);
+    const result = placeBlocusDot(gameState, activePos.x, activePos.y);
     return result.success && result.newCapturesCount > 0 ? result : null;
-  }, [gameState, hoveredPos, isMyTurn]);
+  }, [gameState, activePos, isMyTurn]);
 
   const dismissRulesGuide = () => {
     setShowRulesModal(false);
@@ -684,14 +895,13 @@ export default function BlocusArenaPage() {
 
   // Track cursor on the SVG board to snap the desktop hover reticle.
   const handleSvgPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (isDragging) return;
     setHoveredPos(getGridPositionFromPointer(e.currentTarget, e.clientX, e.clientY));
   };
 
-  // Touch devices do not reliably emit a pointer move before click. Resolve the
-  // intersection from the release event itself so each participant places their
-  // own seed exactly where they tap.
-  const handleSvgPointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
-    if (isDragging) return;
+  // Desktop click on SVG in draw mode immediately places
+  const handleSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (isDragging || interactionMode === 'pan') return;
     const position = getGridPositionFromPointer(e.currentTarget, e.clientX, e.clientY);
     if (position) {
       handlePlaceDot(position.x, position.y);
@@ -778,28 +988,72 @@ export default function BlocusArenaPage() {
           )}
         </div>
 
-        {/* Right Tools: Zoom, Fullscreen, Mute, Forfeit */}
+        {/* Right Tools: Mode, Zoom, Fit, Focus, Fullscreen, Mute, Forfeit */}
         <div className="flex items-center gap-1 sm:gap-1.5">
+          {/* Interaction Mode Toggle */}
+          <div className="flex items-center bg-slate-900 border-2 border-slate-800 p-0.5 rounded-none mr-1">
+            <button
+              onClick={() => { sound.playSelect(); setInteractionMode('draw'); }}
+              className={`px-2 py-1 flex items-center gap-1 text-[11px] font-bold rounded-none transition ${
+                interactionMode === 'draw'
+                  ? 'bg-blue-600 text-white shadow'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title="Draw / Ink Mode (Tap to place dots)"
+            >
+              <PenTool className="w-3 h-3" />
+              <span className="hidden md:inline">Ink</span>
+            </button>
+            <button
+              onClick={() => { sound.playSelect(); setInteractionMode('pan'); }}
+              className={`px-2 py-1 flex items-center gap-1 text-[11px] font-bold rounded-none transition ${
+                interactionMode === 'pan'
+                  ? 'bg-amber-600 text-white shadow'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title="Pan Mode (Drag with 1 finger/mouse to navigate paper)"
+            >
+              <Hand className="w-3 h-3" />
+              <span className="hidden md:inline">Pan</span>
+            </button>
+          </div>
+
           <button
             onClick={() => handleZoom(0.2)}
             className="p-1.5 rounded-none bg-slate-900 border-2 border-slate-800 text-slate-400 hover:text-white"
-            title="Zoom In"
+            title="Zoom In (or Mouse Wheel Up)"
           >
             <ZoomIn className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => handleZoom(-0.2)}
             className="p-1.5 rounded-none bg-slate-900 border-2 border-slate-800 text-slate-400 hover:text-white"
-            title="Zoom Out"
+            title="Zoom Out (or Mouse Wheel Down)"
           >
             <ZoomOut className="w-3.5 h-3.5" />
           </button>
           <button
+            onClick={fitBoard}
+            className="p-1.5 rounded-none bg-slate-900 border-2 border-slate-800 text-slate-400 hover:text-white"
+            title="Fit Entire Sheet to Screen"
+          >
+            <Scan className="w-3.5 h-3.5" />
+          </button>
+          {gameState.lastMove && (
+            <button
+              onClick={focusLastMove}
+              className="p-1.5 rounded-none bg-slate-900 border-2 border-blue-500/50 text-blue-400 hover:text-white animate-pulse"
+              title="Center on Last Move"
+            >
+              <LocateFixed className="w-3.5 h-3.5" />
+            </button>
+          )}
+          <button
             onClick={resetView}
             className="p-1.5 rounded-none bg-slate-900 border-2 border-slate-800 text-slate-400 hover:text-white text-[10px] font-mono font-bold"
-            title="Reset Pan & Zoom"
+            title="Reset Pan & Zoom (1x)"
           >
-            1x
+            {Math.round(zoom * 100)}%
           </button>
 
           {isMultiplayer && (
@@ -938,30 +1192,68 @@ export default function BlocusArenaPage() {
         </div>
       )}
 
-      {/* ACTIVE PLAY ARENA */}
+      {/* ACTIVE PLAY ARENA - Fully scrollable A4 Mathematics Paper Desk */}
       {!showPreGameLobby && (
         <div 
-          className="relative z-10 flex-1 flex flex-col items-center justify-center p-2 sm:p-4 overflow-hidden w-full cursor-crosshair"
+          ref={arenaContainerRef}
+          className={`relative z-10 flex-1 w-full overflow-x-auto overflow-y-auto overscroll-contain select-none bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-[#050811] p-2 sm:p-6 ${
+            interactionMode === 'pan' ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-crosshair'
+          }`}
+          style={{ WebkitOverflowScrolling: 'touch' }}
           onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
-          {/* Zoomable & Pannable Paper Container */}
-          <div
-            className="transition-transform duration-75 origin-center will-change-transform shadow-2xl"
-            style={{
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-            }}
-          >
+          {/* Floating Precision Selection Action Pill (for mobile touch confirmation) */}
+          {selectedPos && isMyTurn && !gameState.dots[posToKey(selectedPos.x, selectedPos.y)] && (
+            <div className="fixed top-14 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 bg-slate-900/95 border-2 border-blue-500/90 px-3.5 py-1.5 shadow-2xl backdrop-blur-md rounded-none animate-in fade-in slide-in-from-top-3">
+              <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-slate-300">
+                <LocateFixed className="w-4 h-4 text-blue-400 animate-pulse" />
+                <span className="hidden sm:inline">Selected:</span>
+                <span className="text-white font-black text-sm bg-blue-950 px-2 py-0.5 border border-blue-500/50">
+                  {String.fromCharCode(65 + (selectedPos.x % 26))}{selectedPos.y + 1}
+                </span>
+              </div>
+              <button
+                onClick={() => handlePlaceDot(selectedPos.x, selectedPos.y)}
+                className="px-3.5 py-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-blue-600/30 transition-all active:scale-95"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>Place Ink</span>
+              </button>
+              <button
+                onClick={() => setSelectedPos(null)}
+                className="p-1 hover:bg-slate-800 text-slate-400 hover:text-white transition"
+                title="Cancel selection"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Full A4 Paper Centering & Scrollable Wrapper */}
+          <div className="min-w-full min-h-full flex items-center justify-start sm:justify-center p-1 sm:p-2">
+            <div
+              className="shrink-0 transition-transform duration-75 origin-top-left sm:origin-center will-change-transform shadow-[0_25px_60px_-15px_rgba(0,0,0,0.85)] relative rounded-sm my-auto"
+              style={{
+                transform: `scale(${zoom})`,
+              }}
+            >
             {/* AUTHENTIC MATHEMATICS NOTEBOOK GRAPH PAPER SVG CANVAS */}
             <svg
+              ref={svgRef}
               width={boardWidthPx}
               height={boardHeightPx}
               viewBox={`0 0 ${boardWidthPx} ${boardHeightPx}`}
-              className="bg-[#fcfbf9] border-4 border-slate-700 shadow-2xl rounded-none select-none"
+              className="bg-[#faf9f5] border-4 border-slate-700 shadow-2xl rounded-none select-none overflow-visible"
+              onClick={handleSvgClick}
               onPointerMove={handleSvgPointerMove}
-              onPointerUp={handleSvgPointerUp}
             >
               <defs>
-                {/* 5mm Quad-Ruled Grid Pattern */}
+                {/* 5mm Quad-Ruled Grid Pattern (16px fine sub-squares) */}
                 <pattern id="mathGridSmall" width="16" height="16" patternUnits="userSpaceOnUse">
                   <path d="M 16 0 L 0 0 0 16" fill="none" stroke="#94a3b830" strokeWidth="0.75" />
                 </pattern>
@@ -970,49 +1262,126 @@ export default function BlocusArenaPage() {
                   <rect width="32" height="32" fill="url(#mathGridSmall)" />
                   <path d="M 32 0 L 0 0 0 32" fill="none" stroke="#64748b45" strokeWidth="1.2" />
                 </pattern>
+                {/* Drop shadow filter for watercolor washes */}
+                <filter id="inkGlow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="2" result="blur" />
+                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                </filter>
               </defs>
 
               {/* Graph Paper Background Fill */}
               <rect width="100%" height="100%" fill="url(#mathGridMajor)" />
 
+              {/* Binder Spiral Holes along left edge (authentic school notebook) */}
+              {[0.18, 0.5, 0.82].map((ratio, idx) => (
+                <g key={`binder-hole-${idx}`}>
+                  <circle
+                    cx="15"
+                    cy={boardHeightPx * ratio}
+                    r="6.5"
+                    fill="#111827"
+                    stroke="#475569"
+                    strokeWidth="1.5"
+                  />
+                  <circle
+                    cx="15"
+                    cy={boardHeightPx * ratio}
+                    r="4.5"
+                    fill="#030712"
+                  />
+                </g>
+              ))}
+
               {/* French Notebook Double-Ruled Red Left Margin Line */}
-              <line x1={paperPadding - 18} y1="0" x2={paperPadding - 18} y2={boardHeightPx} stroke="#ef444455" strokeWidth="1.5" />
-              <line x1={paperPadding - 22} y1="0" x2={paperPadding - 22} y2={boardHeightPx} stroke="#ef444435" strokeWidth="1" />
+              <line x1={paperPadding - 16} y1="0" x2={paperPadding - 16} y2={boardHeightPx} stroke="#ef444465" strokeWidth="1.5" />
+              <line x1={paperPadding - 20} y1="0" x2={paperPadding - 20} y2={boardHeightPx} stroke="#ef444435" strokeWidth="1" />
 
-              {/* Intersection Coordinates Labels (A, B, C... and 1, 2, 3...) */}
-              {Array.from({ length: gameState.width }).map((_, i) => (
-                <text
-                  key={`col-${i}`}
-                  x={paperPadding + i * cellSize}
-                  y={paperPadding - 14}
-                  textAnchor="middle"
-                  fontSize="10"
-                  fontFamily="monospace"
-                  fontWeight="bold"
-                  fill="#64748b"
-                >
-                  {String.fromCharCode(65 + (i % 26))}
-                </text>
-              ))}
-              {Array.from({ length: gameState.height }).map((_, i) => (
-                <text
-                  key={`row-${i}`}
-                  x={paperPadding - 14}
-                  y={paperPadding + i * cellSize + 3.5}
-                  textAnchor="middle"
-                  fontSize="9"
-                  fontFamily="monospace"
-                  fontWeight="bold"
-                  fill="#64748b"
-                >
-                  {i + 1}
-                </text>
-              ))}
+              {/* Intersection Coordinate Crosshairs Guides (active axis tracking) */}
+              {activePos && isMyTurn && !gameState.dots[posToKey(activePos.x, activePos.y)] && (
+                <g className="pointer-events-none opacity-40">
+                  <line
+                    x1={paperPadding + activePos.x * cellSize}
+                    y1={paperPadding - 10}
+                    x2={paperPadding + activePos.x * cellSize}
+                    y2={paperPadding + (gameState.height - 1) * cellSize}
+                    stroke={gameState.currentTurn === 'blue' ? '#3b82f6' : '#ef4444'}
+                    strokeWidth="1.2"
+                    strokeDasharray="4 3"
+                  />
+                  <line
+                    x1={paperPadding - 10}
+                    y1={paperPadding + activePos.y * cellSize}
+                    x2={paperPadding + (gameState.width - 1) * cellSize}
+                    y2={paperPadding + activePos.y * cellSize}
+                    stroke={gameState.currentTurn === 'blue' ? '#3b82f6' : '#ef4444'}
+                    strokeWidth="1.2"
+                    strokeDasharray="4 3"
+                  />
+                </g>
+              )}
 
-              {/* LIVE INK TRACE: every adjacent friendly dot is joined so players can
-                  clearly see the open perimeter they are building around an enemy seed.
-                  A trace stays dashed until it closes around an opposing dot; the solid
-                  polygon below is rendered only for a successful capture. */}
+              {/* Intersection Coordinates Labels (A, B, C... and 1, 2, 3...) with dynamic highlight */}
+              {Array.from({ length: gameState.width }).map((_, i) => {
+                const isHighlighted = activePos?.x === i;
+                const colX = paperPadding + i * cellSize;
+                return (
+                  <g key={`col-${i}`}>
+                    {isHighlighted && (
+                      <rect
+                        x={colX - 8}
+                        y={paperPadding - 24}
+                        width="16"
+                        height="13"
+                        rx="2"
+                        fill={gameState.currentTurn === 'blue' ? 'rgba(37, 99, 235, 0.22)' : 'rgba(239, 68, 68, 0.22)'}
+                      />
+                    )}
+                    <text
+                      x={colX}
+                      y={paperPadding - 14}
+                      textAnchor="middle"
+                      fontSize={isHighlighted ? "11" : "10"}
+                      fontFamily="monospace"
+                      fontWeight="bold"
+                      fill={isHighlighted ? (gameState.currentTurn === 'blue' ? '#1d4ed8' : '#dc2626') : '#64748b'}
+                    >
+                      {String.fromCharCode(65 + (i % 26))}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {Array.from({ length: gameState.height }).map((_, i) => {
+                const isHighlighted = activePos?.y === i;
+                const rowY = paperPadding + i * cellSize;
+                return (
+                  <g key={`row-${i}`}>
+                    {isHighlighted && (
+                      <rect
+                        x={paperPadding - 25}
+                        y={rowY - 8}
+                        width="18"
+                        height="13"
+                        rx="2"
+                        fill={gameState.currentTurn === 'blue' ? 'rgba(37, 99, 235, 0.22)' : 'rgba(239, 68, 68, 0.22)'}
+                      />
+                    )}
+                    <text
+                      x={paperPadding - 15}
+                      y={rowY + 3.5}
+                      textAnchor="middle"
+                      fontSize={isHighlighted ? "10" : "9"}
+                      fontFamily="monospace"
+                      fontWeight="bold"
+                      fill={isHighlighted ? (gameState.currentTurn === 'blue' ? '#1d4ed8' : '#dc2626') : '#64748b'}
+                    >
+                      {i + 1}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* LIVE INK TRACE: every adjacent friendly dot joined with ballpoint pen line */}
               {traceSegments.map((segment) => {
                 const traceColor = segment.color === 'blue'
                   ? '#1d4ed8'
@@ -1028,17 +1397,16 @@ export default function BlocusArenaPage() {
                     x2={paperPadding + segment.to.x * cellSize}
                     y2={paperPadding + segment.to.y * cellSize}
                     stroke={traceColor}
-                    strokeWidth="2.5"
+                    strokeWidth="2.8"
                     strokeLinecap="round"
                     strokeDasharray="5 3"
-                    opacity="0.62"
+                    opacity="0.65"
                     className="animate-in fade-in duration-200"
                   />
                 );
               })}
 
-              {/* CAPTURE PREVIEW: shown only when this exact placement closes an
-                  opponent-containing loop. It is a preview, not a game change. */}
+              {/* CAPTURE PREVIEW: shown when placing on this spot closes an opponent-containing loop */}
               {capturePreview?.newState.enclosures
                 .slice(gameState.enclosures.length)
                 .map((enc) => {
@@ -1051,9 +1419,9 @@ export default function BlocusArenaPage() {
                     <polygon
                       key={`preview-${enc.id}`}
                       points={pointsStr}
-                      fill={`${previewColor}22`}
+                      fill={`${previewColor}25`}
                       stroke={previewColor}
-                      strokeWidth="2"
+                      strokeWidth="2.5"
                       strokeDasharray="6 4"
                       strokeLinejoin="round"
                       className="pointer-events-none animate-pulse"
@@ -1061,7 +1429,7 @@ export default function BlocusArenaPage() {
                   );
                 })}
 
-              {/* COMPLETED ENCLOSURE POLYGONS (WATERCOLOR INK WASH + PERIMETER STROKE) */}
+              {/* COMPLETED ENCLOSURE POLYGONS (WATERCOLOR INK WASH + PERIMETER BALLPOINT STROKE) */}
               {gameState.enclosures.map((enc) => {
                 const pointsStr = enc.polygon
                   .map(([px, py]) => `${paperPadding + px * cellSize},${paperPadding + py * cellSize}`)
@@ -1073,24 +1441,23 @@ export default function BlocusArenaPage() {
                     {/* Translucent Watercolor Wash Interior */}
                     <polygon
                       points={pointsStr}
-                      fill={isBlue ? 'rgba(29, 78, 216, 0.16)' : 'rgba(220, 38, 38, 0.16)'}
+                      fill={isBlue ? 'rgba(29, 78, 216, 0.18)' : 'rgba(220, 38, 38, 0.18)'}
                       className="animate-in fade-in duration-300"
                     />
-                    {/* Ballpoint Pen Boundary Stroke */}
+                    {/* Ballpoint Pen Boundary Perimeter Stroke */}
                     <polygon
                       points={pointsStr}
                       fill="none"
                       stroke={isBlue ? '#1d4ed8' : '#dc2626'}
-                      strokeWidth="2.5"
+                      strokeWidth="3"
                       strokeLinejoin="round"
                       strokeLinecap="round"
-                      strokeDasharray="1 0"
                     />
                   </g>
                 );
               })}
 
-              {/* INTERSECTION GRID PIPS (Subtle crosses marking each intersection) */}
+              {/* INTERSECTION GRID PIPS (Subtle markers at each intersection) */}
               {Array.from({ length: gameState.height }).map((_, y) =>
                 Array.from({ length: gameState.width }).map((_, x) => {
                   const cx = paperPadding + x * cellSize;
@@ -1102,21 +1469,18 @@ export default function BlocusArenaPage() {
                       cy={cy}
                       r="1.5"
                       fill="#94a3b8"
-                      opacity="0.4"
+                      opacity="0.38"
                     />
                   );
                 })
               )}
 
-              {/* PLACED PERMANENT INK DOTS */}
+              {/* PLACED PERMANENT INK DOTS WITH 3D BALLPOINT SHINE */}
               {Object.values(gameState.dots).map((dot) => {
                 const cx = paperPadding + dot.x * cellSize;
                 const cy = paperPadding + dot.y * cellSize;
                 const isCaptured = dot.enclosedBy && dot.enclosedBy !== dot.originalOwner;
 
-                // A seed always keeps the ink colour of the player who placed it.
-                // Capture ownership is communicated by the enclosing trace/halo,
-                // not by repainting the seed itself.
                 let fillColor = dot.originalOwner === 'blue' ? '#1d4ed8' : '#dc2626';
                 if (dot.originalOwner === 'green') fillColor = '#15803d';
 
@@ -1127,108 +1491,221 @@ export default function BlocusArenaPage() {
                       <circle
                         cx={cx}
                         cy={cy}
-                        r="9"
-                        fill={dot.enclosedBy === 'blue' ? 'rgba(29, 78, 216, 0.25)' : 'rgba(220, 38, 38, 0.25)'}
+                        r="10.5"
+                        fill={dot.enclosedBy === 'blue' ? 'rgba(29, 78, 216, 0.22)' : 'rgba(220, 38, 38, 0.22)'}
                         stroke={dot.enclosedBy === 'blue' ? '#2563eb' : '#ef4444'}
-                        strokeWidth="1.2"
+                        strokeWidth="1.5"
                         strokeDasharray="2 2"
                       />
                     )}
 
-                    {/* Outer Ink Ring */}
+                    {/* Outer soft ink diffusion bleed */}
+                    <circle cx={cx} cy={cy} r="6.8" fill={fillColor} opacity="0.22" />
+
+                    {/* Main ballpoint ink bead */}
                     <circle
                       cx={cx}
                       cy={cy}
                       r="5.5"
                       fill={fillColor}
                       stroke="#ffffff"
-                      strokeWidth="1.5"
+                      strokeWidth="1.2"
                     />
 
-                    {/* Specular 3D Ink Core Highlight */}
+                    {/* Specular 3D ballpoint roller shine highlight */}
                     <circle
-                      cx={cx - 1.2}
-                      cy={cy - 1.2}
-                      r="1.8"
-                      fill="rgba(255, 255, 255, 0.55)"
+                      cx={cx - 1.3}
+                      cy={cy - 1.3}
+                      r="1.6"
+                      fill="rgba(255, 255, 255, 0.75)"
                     />
                   </g>
                 );
               })}
 
-              {/* SNAPPING HOVER RETICLE / INK GHOST */}
-              {hoveredPos && !gameState.dots[posToKey(hoveredPos.x, hoveredPos.y)] && isMyTurn && (
-                <g className="pointer-events-none animate-pulse">
+              {/* LAST MOVE INDICATOR (Pulsing Radar Ring around previous play) */}
+              {gameState.lastMove && (
+                <g className="pointer-events-none">
                   <circle
-                    cx={paperPadding + hoveredPos.x * cellSize}
-                    cy={paperPadding + hoveredPos.y * cellSize}
-                    r="8"
+                    cx={paperPadding + gameState.lastMove.x * cellSize}
+                    cy={paperPadding + gameState.lastMove.y * cellSize}
+                    className="animate-blocus-last-move"
+                    fill="none"
+                    stroke={gameState.lastMove.color === 'blue' ? '#2563eb' : '#ef4444'}
+                    strokeWidth="2"
+                    strokeDasharray="4 2"
+                  />
+                  <circle
+                    cx={paperPadding + gameState.lastMove.x * cellSize}
+                    cy={paperPadding + gameState.lastMove.y * cellSize}
+                    r="2.2"
+                    fill={gameState.lastMove.color === 'blue' ? '#60a5fa' : '#f87171'}
+                  />
+                </g>
+              )}
+
+              {/* ANIMATED PLACEMENT INK RIPPLES */}
+              {ripples.map((ripple) => (
+                <circle
+                  key={ripple.id}
+                  cx={paperPadding + ripple.x * cellSize}
+                  cy={paperPadding + ripple.y * cellSize}
+                  className="animate-blocus-ripple pointer-events-none"
+                  stroke={ripple.color === 'blue' ? '#1d4ed8' : '#dc2626'}
+                  fill="none"
+                />
+              ))}
+
+              {/* PRECISION TARGET RETICLE & CAPTURE OPPORTUNITY BANNER */}
+              {activePos && !gameState.dots[posToKey(activePos.x, activePos.y)] && isMyTurn && (
+                <g className="pointer-events-none animate-pulse">
+                  {/* Outer reticle dashed target ring */}
+                  <circle
+                    cx={paperPadding + activePos.x * cellSize}
+                    cy={paperPadding + activePos.y * cellSize}
+                    r="11"
                     fill="none"
                     stroke={myAssignedColor === 'blue' ? '#2563eb' : '#ef4444'}
-                    strokeWidth="1.5"
-                    strokeDasharray="2 2"
+                    strokeWidth="1.8"
+                    strokeDasharray="3 3"
                   />
+                  {/* Core targeting bead */}
                   <circle
-                    cx={paperPadding + hoveredPos.x * cellSize}
-                    cy={paperPadding + hoveredPos.y * cellSize}
+                    cx={paperPadding + activePos.x * cellSize}
+                    cy={paperPadding + activePos.y * cellSize}
                     r="3.5"
-                    fill={myAssignedColor === 'blue' ? 'rgba(37, 99, 235, 0.5)' : 'rgba(239, 68, 68, 0.5)'}
+                    fill={myAssignedColor === 'blue' ? 'rgba(37, 99, 235, 0.7)' : 'rgba(239, 68, 68, 0.7)'}
                   />
+                  {/* Capture banner notification */}
                   {capturePreview && (
-                    <text
-                      x={paperPadding + hoveredPos.x * cellSize}
-                      y={paperPadding + hoveredPos.y * cellSize - 14}
-                      textAnchor="middle"
-                      fontSize="10"
-                      fontFamily="sans-serif"
-                      fontWeight="bold"
-                      fill={myAssignedColor === 'blue' ? '#1d4ed8' : '#dc2626'}
-                    >
-                      CAPTURE +{capturePreview.newCapturesCount}
-                    </text>
+                    <g>
+                      <rect
+                        x={paperPadding + activePos.x * cellSize - 48}
+                        y={paperPadding + activePos.y * cellSize - 32}
+                        width="96"
+                        height="18"
+                        rx="2"
+                        fill={capturePreview.isRecapture ? '#f59e0b' : (myAssignedColor === 'blue' ? '#1d4ed8' : '#dc2626')}
+                      />
+                      <text
+                        x={paperPadding + activePos.x * cellSize}
+                        y={paperPadding + activePos.y * cellSize - 19}
+                        textAnchor="middle"
+                        fontSize="9"
+                        fontFamily="sans-serif"
+                        fontWeight="bold"
+                        fill="#ffffff"
+                      >
+                        {capturePreview.isRecapture ? '👑 RECAPTURE!' : `⚡ ENCLOSE +${capturePreview.newCapturesCount}`}
+                      </text>
+                    </g>
                   )}
                 </g>
               )}
             </svg>
           </div>
+        </div>
 
-          {/* BOTTOM CONTROLS & MINI HUD */}
-          <div className="w-full max-w-md mt-2 flex items-center justify-between px-3 py-1.5 bg-slate-900/90 border-2 border-slate-800 rounded-none backdrop-blur-md">
+          {/* Mobile Horizontal Quick Navigation Pill */}
+          <div className="sm:hidden fixed bottom-16 left-1/2 -translate-x-1/2 z-30 pointer-events-none pb-1 w-full max-w-xs px-2">
+            <div className="pointer-events-auto bg-slate-900/95 border-2 border-slate-700/90 backdrop-blur-md px-2.5 py-1.5 flex items-center justify-between shadow-2xl">
+              <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">A4 Sheet:</span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => scrollToSection('left')}
+                  className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-bold border border-slate-700 active:scale-95 transition"
+                  title="Scroll to Left Margin"
+                >
+                  ◀ Left
+                </button>
+                <button
+                  onClick={() => scrollToSection('center')}
+                  className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-bold border border-slate-700 active:scale-95 transition"
+                  title="Scroll to Center Clash"
+                >
+                  ● Mid
+                </button>
+                <button
+                  onClick={() => scrollToSection('right')}
+                  className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-bold border border-slate-700 active:scale-95 transition"
+                  title="Scroll to Right Edge"
+                >
+                  Right ▶
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* BOTTOM CONTROLS & ENHANCED MINI HUD */}
+          <div className="w-full max-w-lg mt-2.5 flex items-center justify-between px-3 py-2 bg-slate-900/95 border-2 border-slate-800 rounded-none backdrop-blur-md shadow-xl shrink-0">
+            {/* Turn Status with Color Pill */}
             <div className="flex items-center gap-2">
-              <span className={`w-2.5 h-2.5 rounded-full ${
-                gameState.currentTurn === 'blue' ? 'bg-blue-500 animate-pulse' : 'bg-red-500 animate-pulse'
+              <span className={`w-3 h-3 rounded-full shrink-0 ${
+                gameState.currentTurn === 'blue' ? 'bg-blue-500 shadow-sm shadow-blue-500 animate-pulse' : 'bg-red-500 shadow-sm shadow-red-500 animate-pulse'
               }`} />
-              <span className="text-xs font-black uppercase text-white">
+              <span className="text-xs font-black uppercase text-white tracking-wide truncate max-w-[180px] sm:max-w-none">
                 {gameState.winner
                   ? 'Game Finished'
                   : isMyTurn
-                  ? `Your ${myAssignedColor} Trace - Enclose an Opponent Seed`
+                  ? `Your Turn (${myAssignedColor.toUpperCase()})`
                   : isSolo
-                  ? 'Bot Planning Enclosure...'
+                  ? 'Bot Planning...'
                   : "Opponent's Turn"}
               </span>
             </div>
 
-            {/* Pass Turn Button */}
-            {!gameState.winner && (
-              <button
-                onClick={() => {
-                  sound.playClick();
-                  const updated = passTurn(gameState);
-                  setGameState(updated);
-                  if (isMultiplayer && managerRef.current && room) {
-                    managerRef.current.saveRoom({ ...room, gameState: updated });
-                    managerRef.current.broadcast({ type: 'BLOCUS_SYNC', room: { ...room, gameState: updated } });
-                  }
-                }}
-                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-[11px] font-bold rounded-none transition"
-              >
-                Pass Turn
-              </button>
-            )}
+            {/* Middle Quick Tool Controls */}
+            <div className="flex items-center gap-1.5">
+              {/* Interaction Mode Toggle */}
+              <div className="flex items-center bg-slate-950 border border-slate-700 p-0.5 rounded-none">
+                <button
+                  onClick={() => { sound.playSelect(); setInteractionMode('draw'); }}
+                  className={`px-2 py-1 flex items-center gap-1 text-[11px] font-bold rounded-none transition ${
+                    interactionMode === 'draw'
+                      ? 'bg-blue-600 text-white shadow'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Ink Mode (Tap/Click to place)"
+                >
+                  <PenTool className="w-3 h-3" />
+                  <span className="hidden sm:inline">Ink</span>
+                </button>
+                <button
+                  onClick={() => { sound.playSelect(); setInteractionMode('pan'); }}
+                  className={`px-2 py-1 flex items-center gap-1 text-[11px] font-bold rounded-none transition ${
+                    interactionMode === 'pan'
+                      ? 'bg-amber-600 text-white shadow'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Pan Mode (Drag to scroll sheet)"
+                >
+                  <Hand className="w-3 h-3" />
+                  <span className="hidden sm:inline">Pan</span>
+                </button>
+              </div>
+
+              {/* Pass Turn Button */}
+              {!gameState.winner && (
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    const updated = passTurn(gameState);
+                    setGameState(updated);
+                    if (isMultiplayer && managerRef.current && room) {
+                      managerRef.current.saveRoom({ ...room, gameState: updated });
+                      managerRef.current.broadcast({ type: 'BLOCUS_SYNC', room: { ...room, gameState: updated } });
+                    }
+                  }}
+                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-[11px] font-bold rounded-none transition"
+                  title="Pass turn without placing a seed"
+                >
+                  Pass
+                </button>
+              )}
+            </div>
 
             {/* Quick Reactions */}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5 sm:gap-1">
               {['✏️', '🧠', '🛡️', '⚡'].map((emoji) => (
                 <button
                   key={emoji}
